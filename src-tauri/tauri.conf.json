@@ -24,7 +24,7 @@
         "visible": false,
         "center": true,
         "devtools": false,
-        "backgroundColor": "#08080a"
+        "backgroundColor": "#0a0a0c"
       }
     ],
     "security": {
@@ -36,6 +36,7 @@
     "targets": "all",
     "category": "Utility",
     "shortDescription": "Minimal media downloader",
+    "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -44,5 +45,11 @@
       "icons/icon.ico"
     ],
     "resources": ["resources/bin/*"]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": ["https://github.com/RybsonBybson/yt-downloader/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDODQ0NjcwNjdBMjUyQ0MKUldUTVVxSm5jRWFFdkpwOFBxc3c3U3FnRlcxRjRzUkNUYVBHMjZsbVNaWC9kM05XZTU5KzdwRkUK"
+    }
   }
 }

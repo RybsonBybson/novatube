@@ -1,7 +1,9 @@
 name: Release
 
 # Every push (i.e. every commit landing on GitHub) publishes a fresh release
-# with freshly built Windows installers.
+# with freshly built Windows installers. When the updater signing key is
+# configured, the release also carries signed update artifacts + latest.json,
+# so installed copies update themselves.
 on:
   push:
     branches: ["**"]
@@ -58,23 +60,58 @@ jobs:
         id: meta
         shell: pwsh
         run: |
+          $version = "1.0.${{ github.run_number }}"
           $sha = "${{ github.sha }}".Substring(0, 7)
-          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          "version=$version" >> $env:GITHUB_OUTPUT
           "short_sha=$sha" >> $env:GITHUB_OUTPUT
-          "app_version=$version" >> $env:GITHUB_OUTPUT
-          "tag=v$version.${{ github.run_number }}.${{ github.run_attempt }}-$sha" >> $env:GITHUB_OUTPUT
+          "tag=v$version.${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
+
+      - name: Stamp app version
+        shell: pwsh
+        run: |
+          $path = "src-tauri/tauri.conf.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.version = "${{ steps.meta.outputs.version }}"
+          $json | ConvertTo-Json -Depth 32 | Set-Content $path -Encoding utf8
+          Write-Host "App version set to $($json.version)"
+
+      - name: Detect updater signing key
+        id: signing
+        shell: pwsh
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:KEY)) {
+            Write-Host "No signing key configured — building a plain release."
+            "enabled=false" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Signing key found — updater artifacts enabled."
+            "enabled=true" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Enable updater artifacts
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $path = "src-tauri/tauri.conf.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.bundle.createUpdaterArtifacts = $true
+          $json | ConvertTo-Json -Depth 32 | Set-Content $path -Encoding utf8
 
       - name: Build and publish release
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ steps.meta.outputs.tag }}
-          releaseName: "NovaTube ${{ steps.meta.outputs.app_version }} (${{ steps.meta.outputs.short_sha }})"
+          releaseName: "NovaTube ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.short_sha }})"
           releaseBody: |
             Automated build from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
 
             - yt-dlp is downloaded on first launch
             - ffmpeg is bundled with the installer
+            - installed copies update themselves when a newer release appears
           releaseDraft: false
           prerelease: false

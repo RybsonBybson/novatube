@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Check, DownloadCloud, FolderDown, FolderOpen, RefreshCw } from "lucide-react";
 import type { AppInfo, AppSettings, BinariesStatus, DownloadOptions } from "@shared/types";
 import { api } from "../lib/api";
+import type { UpdateInfo } from "../lib/updater";
 import { cn, truncateMiddle } from "../lib/utils";
 import {
   AUDIO_FORMATS,
@@ -30,9 +31,31 @@ interface SettingsViewProps {
   onUpdateYtDlp: () => Promise<BinariesStatus>;
   onRefreshBinaries: () => Promise<BinariesStatus>;
   appInfo: AppInfo | null;
+  updateAvailable: UpdateInfo | null;
+  updateChecking: boolean;
+  updateInstalling: boolean;
+  updateProgress: number | null;
+  updateError: string | null;
+  onCheckUpdates: () => Promise<UpdateInfo | null>;
+  onInstallUpdate: () => Promise<void>;
 }
 
-export function SettingsView({ settings, settingsError, onUpdate, binaries, onUpdateYtDlp, onRefreshBinaries, appInfo }: SettingsViewProps) {
+export function SettingsView({
+  settings,
+  settingsError,
+  onUpdate,
+  binaries,
+  onUpdateYtDlp,
+  onRefreshBinaries,
+  appInfo,
+  updateAvailable,
+  updateChecking,
+  updateInstalling,
+  updateProgress,
+  updateError,
+  onCheckUpdates,
+  onInstallUpdate,
+}: SettingsViewProps) {
   const toast = useToast();
 
   const save = async (patch: Partial<AppSettings>, successMessage?: string) => {
@@ -288,6 +311,59 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
             </Panel>
 
             <Panel delay={0.08} className="lg:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <SectionTitle title="App updates" subtitle="Signed updates straight from GitHub Releases" />
+                <span
+                  className={cn(
+                    "rounded-full px-3 py-1 text-[10.5px] font-semibold",
+                    updateAvailable ? "bg-saffron/15 text-saffron-ink" : "bg-fog/[0.05] text-mute/70",
+                  )}
+                >
+                  {updateInstalling
+                    ? `Updating${updateProgress !== null ? ` · ${updateProgress}%` : ""}`
+                    : updateAvailable
+                      ? `v${updateAvailable.version} available`
+                      : `Up to date · v${appInfo?.version ?? "—"}`}
+                </span>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="soft" onClick={() => void onCheckUpdates()} loading={updateChecking} disabled={updateInstalling}>
+                  <RefreshCw className="size-3.5" />
+                  Check now
+                </Button>
+                <Button size="sm" onClick={() => void onInstallUpdate()} loading={updateInstalling} disabled={!updateAvailable}>
+                  <DownloadCloud className="size-3.5" />
+                  Install update
+                </Button>
+                <div className="ml-auto flex items-center gap-2">
+                  <span className="text-[11px] text-mist/80">Install automatically</span>
+                  <Switch
+                    checked={settings.autoUpdate}
+                    onCheckedChange={(autoUpdate) => void save({ autoUpdate })}
+                    aria-label="Install updates automatically"
+                  />
+                </div>
+              </div>
+
+              {updateInstalling && updateProgress !== null ? (
+                <div className="mt-4 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
+                  <motion.div
+                    className="h-full rounded-full bg-gradient-to-r from-saffron to-orange"
+                    animate={{ width: `${updateProgress}%` }}
+                    transition={{ type: "spring", stiffness: 120, damping: 24 }}
+                  />
+                </div>
+              ) : null}
+
+              {updateError ? <p className="mt-3 text-[10.5px] text-danger/80">{updateError}</p> : null}
+
+              <p className="mt-4 text-[10px] text-mute/40">
+                Updates are verified with the app signing key and never interrupt a download in progress.
+              </p>
+            </Panel>
+
+            <Panel delay={0.1} className="lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionTitle title="Engines" subtitle="yt-dlp fetches, ffmpeg merges" />
                 <div className="flex items-center gap-2">

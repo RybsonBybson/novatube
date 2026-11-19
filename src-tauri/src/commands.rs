@@ -28,12 +28,12 @@ pub fn downloads_list(state: State<'_, AppState>) -> Vec<DownloadItem> {
 }
 
 #[tauri::command]
-pub fn downloads_add(input: AddDownloadInput, state: State<'_, AppState>) -> Result<DownloadItem, String> {
+pub async fn downloads_add(input: AddDownloadInput, state: State<'_, AppState>) -> Result<DownloadItem, String> {
     state.queue.add(input)
 }
 
 #[tauri::command]
-pub fn downloads_add_many(
+pub async fn downloads_add_many(
     inputs: Vec<AddDownloadInput>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DownloadItem>, String> {
@@ -69,14 +69,14 @@ pub fn downloads_retry(id: String, state: State<'_, AppState>) -> Result<(), Str
 }
 
 #[tauri::command]
-pub fn downloads_remove(id: String, state: State<'_, AppState>) -> Result<(), String> {
+pub async fn downloads_remove(id: String, state: State<'_, AppState>) -> Result<(), String> {
     require(&id)?;
     state.queue.remove(&id);
     Ok(())
 }
 
 #[tauri::command]
-pub fn downloads_clear_finished(state: State<'_, AppState>) -> Result<(), String> {
+pub async fn downloads_clear_finished(state: State<'_, AppState>) -> Result<(), String> {
     state.queue.clear_finished();
     Ok(())
 }
@@ -127,7 +127,7 @@ pub fn settings_get(state: State<'_, AppState>) -> AppSettings {
 }
 
 #[tauri::command]
-pub fn settings_update(patch: Value, state: State<'_, AppState>) -> Result<AppSettings, String> {
+pub async fn settings_update(patch: Value, state: State<'_, AppState>) -> Result<AppSettings, String> {
     if !patch.is_object() {
         return Err("Invalid settings payload.".into());
     }

@@ -1,8 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertCircle, ArrowDownToLine, ExternalLink, Film, FolderOpen, Music2, Search, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { HistoryEntry } from "@shared/types";
 import type { DownloadsApi } from "../hooks/useDownloads";
+import { useIncremental } from "../hooks/useIncremental";
 import { api } from "../lib/api";
 import { formatBytes, formatDate, pluralize, timeAgo } from "../lib/utils";
 import { useToast } from "./Toasts";
@@ -16,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 interface HistoryViewProps {
   entries: HistoryEntry[];
   loaded: boolean;
-  downloads: DownloadsApi;
+  onAdd: DownloadsApi["add"];
   onRemove: (id: string) => Promise<unknown>;
   onClear: () => Promise<unknown>;
 }
@@ -34,7 +35,7 @@ function parentDir(filePath: string): string {
   return filePath.replace(/[\\/][^\\/]+$/, "") || filePath;
 }
 
-export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: HistoryViewProps) {
+export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, onRemove, onClear }: HistoryViewProps) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("newest");
@@ -59,6 +60,9 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
     });
   }, [entries, filter, query, sort]);
 
+  /* Mount a slice at a time so a large library never blocks the UI. */
+  const { visible, hasMore, sentinelRef } = useIncremental(filtered, 40, `${filter}|${sort}|${query}`);
+
   const totalSize = entries.reduce((sum, entry) => sum + (entry.fileSize ?? 0), 0);
   const videoCount = entries.filter((entry) => entry.options.kind === "video").length;
   const audioCount = entries.length - videoCount;
@@ -80,7 +84,7 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
   };
 
   const redownload = async (entry: HistoryEntry) => {
-    const item = await downloads.add({
+    const item = await onAdd({
       url: entry.url,
       title: entry.title,
       thumbnail: entry.thumbnail,
@@ -165,10 +169,11 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
 
         <div className="mt-5 space-y-1">
           <AnimatePresence initial={false}>
-            {filtered.map((entry) => (
+            {visible.map((entry) => (
               <HistoryRow key={entry.id} entry={entry} onOpenFile={openFile} onOpenFolder={openFolder} onRedownload={redownload} onRemove={removeEntry} />
             ))}
           </AnimatePresence>
+          {hasMore ? <div ref={sentinelRef} className="h-8" aria-hidden /> : null}
 
           {!filtered.length && loaded ? (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-[24px] bg-ink-850/50 px-6 py-16 text-center">
@@ -212,7 +217,7 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
       </Dialog>
     </div>
   );
-}
+});
 
 function HistoryRow({
   entry,

@@ -7,6 +7,7 @@ import { api } from "../lib/api";
 import { optionsFromSettings, optionsSummary } from "../lib/options";
 import { pluralize } from "../lib/utils";
 import { extractUrl, isSupportedUrl, normalizeInput } from "../lib/url";
+import { useIncremental } from "../hooks/useIncremental";
 import { Aurora } from "./Aurora";
 import { DownloadCard, MetadataSkeleton, QueueEmpty } from "./DownloadCard";
 import { MediaPreview } from "./MediaPreview";
@@ -33,6 +34,7 @@ type Mode = "quick" | "advanced";
 type QueueFilter = "all" | "active" | "done";
 
 interface DownloaderProps {
+  active: boolean;
   downloads: DownloadsApi;
   settings: AppSettings | null;
   binaries: BinariesStatus | null;
@@ -40,7 +42,7 @@ interface DownloaderProps {
   onOpenHistory: () => void;
 }
 
-export function Downloader({ downloads, settings, binaries, onOpenSettings, onOpenHistory }: DownloaderProps) {
+export function Downloader({ active, downloads, settings, binaries, onOpenSettings, onOpenHistory }: DownloaderProps) {
   const [mode, setMode] = useState<Mode>("quick");
   const [url, setUrl] = useState("");
   const [media, setMedia] = useState<MediaInfo | null>(null);
@@ -201,6 +203,9 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
     return queue;
   }, [filter, queue]);
 
+  /* Only mount a slice of the queue; the rest loads as the user scrolls. */
+  const { visible: visibleQueue, hasMore: queueHasMore, sentinelRef: queueSentinel } = useIncremental(filtered, 40, filter);
+
   const engine = binaries?.ytDlp;
   const engineWarning = engine?.state === "error" || engine?.state === "missing";
   const enginePreparing = engine?.state === "downloading" || engine?.state === "updating";
@@ -232,7 +237,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
         void process(found, mode === "quick");
       }}
     >
-      <Aurora />
+      <Aurora active={active} />
 
       <AnimatePresence>
         {dragging ? (
@@ -427,7 +432,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
 
           <div className="mt-4 space-y-1.5">
             <AnimatePresence initial={false}>
-              {filtered.map((item) => (
+              {visibleQueue.map((item) => (
                 <DownloadCard
                   key={item.id}
                   item={item}
@@ -441,6 +446,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                 />
               ))}
             </AnimatePresence>
+            {queueHasMore ? <div ref={queueSentinel} className="h-8" aria-hidden /> : null}
             {!filtered.length && downloads.loaded ? (
               filter === "all" ? (
                 <QueueEmpty onBrowse={onOpenHistory} />

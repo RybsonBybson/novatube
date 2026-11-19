@@ -15,9 +15,11 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-single-instance = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["process", "io-util", "time", "fs", "sync", "rt"] }
+tokio = { version = "1", features = ["process", "io-util", "time", "fs", "sync", "rt", "rt-multi-thread"] }
 reqwest = { version = "0.12", features = ["stream"] }
 regex = "1"
 rfd = "0.15"
@@ -30,5 +32,4 @@ opener = { version = "0.7", features = ["reveal"] }
 codegen-units = 1
 lto = true
 opt-level = 3
-panic = "abort"
 strip = true

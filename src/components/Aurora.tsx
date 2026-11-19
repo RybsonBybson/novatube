@@ -8,7 +8,8 @@ const BLOBS = [
   { color: "#9ebdff", x: "96%", size: 470, delay: 3.6 },
 ];
 
-export function Aurora({ compact = false }: { compact?: boolean }) {
+export function Aurora({ compact = false, active = true }: { compact?: boolean; active?: boolean }) {
+  if (!active) return null;
   return (
     <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 overflow-hidden" style={{ height: compact ? 200 : 340 }}>
       {BLOBS.map((blob) => (

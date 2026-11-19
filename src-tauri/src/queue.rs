@@ -113,8 +113,8 @@ impl DownloadQueue {
         if inputs.is_empty() {
             return Err("No videos selected.".into());
         }
-        if inputs.len() > 500 {
-            return Err("Please select fewer than 500 videos at once.".into());
+        if inputs.len() > 50_000 {
+            return Err("That playlist is too large (limit: 50,000 videos).".into());
         }
 
         let mut created = Vec::with_capacity(inputs.len());
@@ -132,9 +132,7 @@ impl DownloadQueue {
                 inner.order.push(item.id.clone());
             }
         }
-        for item in &created {
-            self.emit_update(item.clone(), true);
-        }
+        // One snapshot instead of N individual events keeps huge batches cheap.
         self.emit_snapshot();
         self.schedule();
         Ok(created)
@@ -526,6 +524,9 @@ impl DownloadQueue {
 
     fn finish_run(self: &Arc<Self>, id: &str) {
         self.lock().runs.remove(id);
+        if let Ok(mut times) = self.emit_times.lock() {
+            times.remove(id);
+        }
         self.schedule();
     }
 
@@ -992,12 +993,15 @@ impl DownloadQueue {
         self.lock().runs.get(id).and_then(|run| run.pid)
     }
 
+    /// A run is "stopped" only when it was explicitly cancelled/paused, or its
+    /// item was removed. A missing run entry alone must never abort a live
+    /// download — that would silently orphan the child process.
     fn is_stopped(&self, id: &str) -> bool {
-        self.lock()
-            .runs
-            .get(id)
-            .map(|run| run.cancelled || run.paused)
-            .unwrap_or(true)
+        let inner = self.lock();
+        match inner.runs.get(id) {
+            Some(run) => run.cancelled || run.paused,
+            None => !inner.items.contains_key(id),
+        }
     }
 
     fn set_final_path(&self, id: &str, path: &str) {

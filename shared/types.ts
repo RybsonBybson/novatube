@@ -139,6 +139,7 @@ export interface AppSettings {
   embedThumbnail: boolean;
   subtitles: SubtitleMode;
   autoUpdateYtDlp: boolean;
+  autoUpdate: boolean;
   theme: ThemeMode;
   rememberView: boolean;
   lastView: ViewId;

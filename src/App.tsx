@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ViewId } from "@shared/types";
 import { Downloader } from "./components/Downloader";
@@ -11,11 +10,18 @@ import { useToast } from "./components/Toasts";
 import { useAppInfo, useBinaries, useHistory, useSettings } from "./hooks/useBackend";
 import { useDownloads } from "./hooks/useDownloads";
 import { useTheme } from "./hooks/useTheme";
+import { useUpdater } from "./hooks/useUpdater";
 import { api } from "./lib/api";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 const VIEWS: ViewId[] = ["downloader", "history", "settings"];
+const BUSY_STATUSES = new Set(["queued", "fetching", "downloading", "processing", "compressing", "paused"]);
 
+/**
+ * All three views stay mounted and are only hidden with CSS. That keeps the
+ * download UI state alive when navigating away, so switching to Settings can
+ * never disturb a running queue.
+ */
 export default function App() {
   const [view, setView] = useState<ViewId>("downloader");
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -30,9 +36,20 @@ export default function App() {
   useTheme(settings?.theme);
   const restoredView = useRef(false);
 
-  const activeCount = downloads.items.filter(
-    (item) => !["completed", "cancelled", "error"].includes(item.status),
-  ).length;
+  const {
+    available: updateAvailable,
+    checking: updateChecking,
+    installing: updateInstalling,
+    progress: updateProgress,
+    error: updateError,
+    check: checkUpdates,
+    install: installUpdate,
+  } = useUpdater();
+
+  const activeCount = downloads.items.reduce(
+    (total, item) => total + (BUSY_STATUSES.has(item.status) ? 1 : 0),
+    0,
+  );
 
   const engineErrorRef = useRef(false);
   useEffect(() => {
@@ -48,6 +65,23 @@ export default function App() {
     if (state === "ready") engineErrorRef.current = false;
   }, [binaries, toast]);
 
+  /* Look for an app update once per launch. */
+  const updateChecked = useRef(false);
+  useEffect(() => {
+    if (!settings || updateChecked.current) return;
+    updateChecked.current = true;
+    void checkUpdates();
+  }, [settings, checkUpdates]);
+
+  /* Install automatically when enabled — but never interrupt active downloads. */
+  const autoInstallStarted = useRef(false);
+  useEffect(() => {
+    if (!settings?.autoUpdate || !updateAvailable || autoInstallStarted.current || updateInstalling) return;
+    if (activeCount > 0) return;
+    autoInstallStarted.current = true;
+    void installUpdate();
+  }, [settings?.autoUpdate, updateAvailable, updateInstalling, activeCount, installUpdate]);
+
   const changeView = useCallback(
     (next: ViewId) => {
       if (!VIEWS.includes(next)) return;
@@ -61,7 +95,7 @@ export default function App() {
   const focusSearch = useCallback(() => {
     if (view !== "downloader") {
       changeView("downloader");
-      window.setTimeout(() => document.getElementById("nova-url-input")?.focus(), 90);
+      window.setTimeout(() => document.getElementById("nova-url-input")?.focus(), 40);
     } else {
       document.getElementById("nova-url-input")?.focus();
     }
@@ -164,48 +198,45 @@ export default function App() {
           />
 
           <main ref={mainRef} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={view}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.22, ease: "easeOut" }}
-                className="min-h-full"
-              >
-                {view === "downloader" ? (
-                  <Downloader
-                    downloads={downloads}
-                    settings={settings}
-                    binaries={binaries}
-                    onOpenSettings={() => changeView("settings")}
-                    onOpenHistory={() => changeView("history")}
-                  />
-                ) : null}
+            <div className={view === "downloader" ? "min-h-full" : "hidden"} aria-hidden={view !== "downloader"}>
+              <Downloader
+                active={view === "downloader"}
+                downloads={downloads}
+                settings={settings}
+                binaries={binaries}
+                onOpenSettings={() => changeView("settings")}
+                onOpenHistory={() => changeView("history")}
+              />
+            </div>
 
-                {view === "history" ? (
-                  <HistoryView
-                    entries={history.entries}
-                    loaded={history.loaded}
-                    downloads={downloads}
-                    onRemove={history.remove}
-                    onClear={history.clear}
-                  />
-                ) : null}
+            <div className={view === "history" ? "min-h-full" : "hidden"} aria-hidden={view !== "history"}>
+              <HistoryView
+                entries={history.entries}
+                loaded={history.loaded}
+                onAdd={downloads.add}
+                onRemove={history.remove}
+                onClear={history.clear}
+              />
+            </div>
 
-                {view === "settings" ? (
-                  <SettingsView
-                    settings={settings}
-                    settingsError={settingsError}
-                    onUpdate={updateSettings}
-                    binaries={binaries}
-                    onUpdateYtDlp={updateYtDlp}
-                    onRefreshBinaries={refreshBinaries}
-                    appInfo={appInfo}
-                  />
-                ) : null}
-              </motion.div>
-            </AnimatePresence>
+            <div className={view === "settings" ? "min-h-full" : "hidden"} aria-hidden={view !== "settings"}>
+              <SettingsView
+                settings={settings}
+                settingsError={settingsError}
+                onUpdate={updateSettings}
+                binaries={binaries}
+                onUpdateYtDlp={updateYtDlp}
+                onRefreshBinaries={refreshBinaries}
+                appInfo={appInfo}
+                updateAvailable={updateAvailable}
+                updateChecking={updateChecking}
+                updateInstalling={updateInstalling}
+                updateProgress={updateProgress}
+                updateError={updateError}
+                onCheckUpdates={checkUpdates}
+                onInstallUpdate={installUpdate}
+              />
+            </div>
           </main>
         </div>
 

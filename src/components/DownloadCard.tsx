@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { memo } from "react";
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -43,7 +44,7 @@ const STATUS: Record<DownloadStatus, { label: string; icon: typeof Clock3; text:
   error: { label: "Failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
 };
 
-export function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRemove, onOpenFile, onOpenFolder }: DownloadCardProps) {
+export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRemove, onOpenFile, onOpenFolder }: DownloadCardProps) {
   const status = STATUS[item.status];
   const StatusIcon = status.icon;
   const active = ["fetching", "downloading", "processing", "compressing"].includes(item.status);
@@ -63,7 +64,6 @@ export function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRem
 
   return (
     <motion.article
-      layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -14 }}
@@ -198,7 +198,7 @@ export function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRem
       </div>
     </motion.article>
   );
-}
+});
 
 function CardAction({
   label,

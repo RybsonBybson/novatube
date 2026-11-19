@@ -75,15 +75,13 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
         "utf-8",
         "--dump-single-json",
         "--flat-playlist",
-        "--playlist-end",
-        "1000",
         "--socket-timeout",
         "20",
         url,
     ];
 
     let output = tokio::time::timeout(
-        Duration::from_secs(90),
+        Duration::from_secs(180),
         tokio::process::Command::new(binary).args(args).output(),
     )
     .await
@@ -128,7 +126,6 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
             .unwrap_or_default()
             .into_iter()
             .filter(|entry| entry.id.is_some() || entry.url.is_some())
-            .take(1000)
             .enumerate()
             .filter_map(|(index, entry)| {
                 let id = entry.id.clone().unwrap_or_else(|| (index + 1).to_string());

@@ -1,5 +1,6 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { CheckCheck, ListVideo, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { AddDownloadInput, DownloadOptions, MediaEntry, MediaInfo } from "@shared/types";
 import { cn, formatDuration, parseRange, pluralize } from "../lib/utils";
 import { AUDIO_FORMATS, AUDIO_QUALITIES, COMPRESSION_OPTIONS, CONTAINERS, QUALITY_OPTIONS, optionsSummary } from "../lib/options";
@@ -36,23 +37,37 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
     }
   }, [open, media]);
 
+  const deferredQuery = useDeferredValue(query);
+
   const entries = useMemo(() => {
-    const needle = query.trim().toLowerCase();
+    const needle = deferredQuery.trim().toLowerCase();
     if (!needle) return media.entries;
     return media.entries.filter(
       (entry) => entry.title.toLowerCase().includes(needle) || (entry.channel ?? "").toLowerCase().includes(needle),
     );
-  }, [media.entries, query]);
+  }, [media.entries, deferredQuery]);
+
+  /* Fixed-height rows → exact virtualisation, even for huge playlists. */
+  const listRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 56,
+    overscan: 8,
+  });
 
   const selectedEntries = useMemo(() => media.entries.filter((entry) => selected.has(entry.id)), [media.entries, selected]);
 
-  const toggle = (id: string) =>
-    setSelected((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const toggle = useCallback(
+    (id: string) =>
+      setSelected((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
 
   const applyRange = () => {
     const indexes = parseRange(range, media.entries.length);
@@ -146,55 +161,38 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-3">
+        <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-3">
           {entries.length === 0 ? (
             <div className="grid place-items-center py-16 text-center text-[12px] text-mute">
               <Search className="mb-2 size-6 text-mute/30" />
               No videos match “{query}”.
             </div>
           ) : (
-            <ul className="space-y-0.5 pb-2">
-              {entries.map((entry) => {
-                const checked = selected.has(entry.id);
+            <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+              {virtualizer.getVirtualItems().map((row) => {
+                const entry = entries[row.index];
                 return (
-                  <li key={entry.id}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => toggle(entry.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          toggle(entry.id);
-                        }
-                      }}
-                      className={cn(
-                        "flex w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/40",
-                        checked ? "bg-fog/[0.05]" : "hover:bg-fog/[0.03]",
-                      )}
-                    >
-                      <Checkbox checked={checked} onCheckedChange={() => toggle(entry.id)} aria-label={entry.title} />
-                      <span className="w-6 shrink-0 text-right font-mono text-[9.5px] text-mute/40">{entry.index + 1}</span>
-                      <span className="relative shrink-0 overflow-hidden rounded-xl bg-ink-900">
-                        {entry.thumbnail ? (
-                          <img src={entry.thumbnail} alt="" draggable={false} className="h-[40px] w-[70px] object-cover" />
-                        ) : (
-                          <span className="grid h-[40px] w-[70px] place-items-center">
-                            <ListVideo className="size-4 text-mute/30" />
-                          </span>
-                        )}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className={cn("block truncate text-[11.5px] font-medium", checked ? "text-mist/90" : "text-mute")}>{entry.title}</span>
-                        <span className="mt-0.5 block truncate text-[9.5px] text-mute/50">
-                          {entry.channel ?? media.channel ?? "Unknown"} {entry.duration ? `· ${formatDuration(entry.duration)}` : ""}
-                        </span>
-                      </span>
-                    </div>
-                  </li>
+                  <div
+                    key={row.key}
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: row.size,
+                      transform: `translateY(${row.start}px)`,
+                    }}
+                  >
+                    <PlaylistRow
+                      entry={entry}
+                      checked={selected.has(entry.id)}
+                      onToggle={toggle}
+                      fallbackChannel={media.channel}
+                    />
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )}
         </div>
 
@@ -308,3 +306,51 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
     </Dialog>
   );
 }
+
+const PlaylistRow = memo(function PlaylistRow({
+  entry,
+  checked,
+  onToggle,
+  fallbackChannel,
+}: {
+  entry: MediaEntry;
+  checked: boolean;
+  onToggle: (id: string) => void;
+  fallbackChannel?: string;
+}) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onToggle(entry.id)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onToggle(entry.id);
+        }
+      }}
+      className={cn(
+        "flex h-full w-full cursor-pointer items-center gap-3 rounded-2xl px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/40",
+        checked ? "bg-fog/[0.05]" : "hover:bg-fog/[0.03]",
+      )}
+    >
+      <Checkbox checked={checked} onCheckedChange={() => onToggle(entry.id)} aria-label={entry.title} />
+      <span className="w-6 shrink-0 text-right font-mono text-[9.5px] text-mute/40">{entry.index + 1}</span>
+      <span className="relative shrink-0 overflow-hidden rounded-xl bg-ink-900">
+        {entry.thumbnail ? (
+          <img src={entry.thumbnail} alt="" draggable={false} loading="lazy" className="h-[40px] w-[70px] object-cover" />
+        ) : (
+          <span className="grid h-[40px] w-[70px] place-items-center">
+            <ListVideo className="size-4 text-mute/30" />
+          </span>
+        )}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate text-[11.5px] font-medium", checked ? "text-mist/90" : "text-mute")}>{entry.title}</span>
+        <span className="mt-0.5 block truncate text-[9.5px] text-mute/50">
+          {entry.channel ?? fallbackChannel ?? "Unknown"} {entry.duration ? `· ${formatDuration(entry.duration)}` : ""}
+        </span>
+      </span>
+    </div>
+  );
+});
