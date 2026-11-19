@@ -1,0 +1,401 @@
+@import "tailwindcss";
+
+/*
+ * Theme tokens are plain CSS variables so the whole UI can switch between
+ * dark and light at runtime. `@theme inline` maps them into Tailwind colors.
+ * A shadcn-compatible token layer (background, card, popover, primary, …)
+ * sits on top so the Radix primitives in `components/ui` share one skin.
+ */
+@theme inline {
+  --font-sans: "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", system-ui, sans-serif;
+
+  --color-ink-950: var(--ink-950);
+  --color-ink-900: var(--ink-900);
+  --color-ink-850: var(--ink-850);
+  --color-ink-800: var(--ink-800);
+  --color-ink-750: var(--ink-750);
+  --color-ink-700: var(--ink-700);
+
+  --color-lime: var(--lime);
+  --color-lime-ink: var(--lime-ink);
+  --color-lime-dim: var(--lime-dim);
+  --color-peach: var(--peach);
+  --color-peach-ink: var(--peach-ink);
+  --color-aqua: var(--aqua);
+  --color-aqua-ink: var(--aqua-ink);
+  --color-mist: var(--mist);
+  --color-mute: var(--mute);
+
+  --color-fog: var(--fog);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-warn: var(--warn);
+
+  /* shadcn token bridge */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-4xl: 2rem;
+  --radius-5xl: 2.75rem;
+
+  --animate-shimmer: shimmer 2.4s linear infinite;
+}
+
+:root {
+  color-scheme: dark;
+
+  --ink-950: #08090f;
+  --ink-900: #0c0e16;
+  --ink-850: #12141d;
+  --ink-800: #181b26;
+  --ink-750: #222634;
+  --ink-700: #2e3446;
+
+  --lime: #c9f63f;
+  --lime-ink: #c9f63f;
+  --lime-dim: #9dc72c;
+  --peach: #ff8a6b;
+  --peach-ink: #ff8a6b;
+  --aqua: #45e6c8;
+  --aqua-ink: #45e6c8;
+  --mist: #f3f2ee;
+  --mute: #8b90a4;
+
+  --fog: #ffffff;
+  --on-accent: #0c1006;
+  --danger: #ff6b78;
+  --warn: #ffc24b;
+
+  /* shadcn-compatible surfaces */
+  --background: var(--ink-950);
+  --foreground: var(--mist);
+  --card: var(--ink-850);
+  --card-foreground: var(--mist);
+  --popover: #171a25;
+  --popover-foreground: var(--mist);
+  --primary: var(--lime);
+  --primary-foreground: var(--on-accent);
+  --secondary: rgba(255, 255, 255, 0.07);
+  --secondary-foreground: var(--mist);
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: var(--mute);
+  --accent: rgba(255, 255, 255, 0.09);
+  --accent-foreground: var(--mist);
+  --destructive: var(--danger);
+  --destructive-foreground: #1a0507;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(201, 246, 63, 0.55);
+
+  --scroll: rgba(255, 255, 255, 0.09);
+  --scroll-hover: rgba(255, 255, 255, 0.18);
+  --selection: rgba(201, 246, 63, 0.28);
+  --focus-ring: rgba(201, 246, 63, 0.55);
+  --slider-track: rgba(255, 255, 255, 0.1);
+  --shimmer: rgba(8, 9, 15, 0.32);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --ink-950: #f8f7f3;
+  --ink-900: #f0ede5;
+  --ink-850: #ffffff;
+  --ink-800: #f3f0e9;
+  --ink-750: #e8e4d9;
+  --ink-700: #d9d3c5;
+
+  --lime: #c9f63f;
+  --lime-ink: #597505;
+  --lime-dim: #9dc72c;
+  --peach: #ff9c78;
+  --peach-ink: #b2481f;
+  --aqua: #16c2a3;
+  --aqua-ink: #0b7a66;
+  --mist: #191a20;
+  --mute: #6d7181;
+
+  --fog: #000000;
+  --on-accent: #17190c;
+  --danger: #c62f3a;
+  --warn: #a56a00;
+
+  --background: var(--ink-950);
+  --foreground: var(--mist);
+  --card: var(--ink-850);
+  --card-foreground: var(--mist);
+  --popover: #ffffff;
+  --popover-foreground: var(--mist);
+  --primary: #a9d81f;
+  --primary-foreground: #17190c;
+  --secondary: rgba(0, 0, 0, 0.05);
+  --secondary-foreground: var(--mist);
+  --muted: rgba(0, 0, 0, 0.045);
+  --muted-foreground: var(--mute);
+  --accent: rgba(0, 0, 0, 0.06);
+  --accent-foreground: var(--mist);
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.1);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: rgba(126, 155, 10, 0.5);
+
+  --scroll: rgba(0, 0, 0, 0.14);
+  --scroll-hover: rgba(0, 0, 0, 0.26);
+  --selection: rgba(163, 196, 20, 0.32);
+  --focus-ring: rgba(126, 155, 10, 0.5);
+  --slider-track: rgba(0, 0, 0, 0.11);
+  --shimmer: rgba(255, 255, 255, 0.5);
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(210%);
+  }
+}
+
+@keyframes nova-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes nova-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes nova-pop-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes nova-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@layer base {
+  * {
+    -webkit-app-region: no-drag;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    background: var(--ink-950);
+  }
+
+  body {
+    margin: 0;
+    font-family: var(--font-sans);
+    color: var(--mist);
+    background: var(--ink-950);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    user-select: none;
+    overflow: hidden;
+    transition:
+      background-color 0.22s ease,
+      color 0.22s ease;
+  }
+
+  input,
+  textarea,
+  [contenteditable="true"] {
+    user-select: text;
+  }
+
+  ::selection {
+    background: var(--selection);
+    color: var(--mist);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scroll);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--scroll-hover);
+    background-clip: content-box;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  [role="button"]:focus-visible {
+    outline: none;
+  }
+}
+
+@layer utilities {
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* The only brand gradient: logo mark + primary CTA. */
+  .nova-gradient {
+    background-image: linear-gradient(118deg, #c9f63f 0%, #45e6c8 48%, #ff8a6b 100%);
+  }
+
+  .nova-text {
+    background-image: linear-gradient(102deg, #e4ff9c 0%, #c9f63f 40%, #45e6c8 68%, #ff8a6b 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Borderless surfaces. Depth comes from tone and spacing, never hairlines. */
+  .surface {
+    background: var(--ink-850);
+  }
+
+  .surface-hi {
+    background: var(--ink-800);
+  }
+
+  .surface-soft {
+    background: color-mix(in srgb, var(--fog) 3.5%, transparent);
+  }
+
+  .surface-blur {
+    background: color-mix(in srgb, var(--ink-950) 82%, transparent);
+    backdrop-filter: blur(26px) saturate(120%);
+    -webkit-backdrop-filter: blur(26px) saturate(120%);
+  }
+
+  .glow-accent {
+    box-shadow: 0 30px 90px -48px rgba(201, 246, 63, 0.6);
+  }
+
+  .glow-aqua {
+    box-shadow: 0 30px 90px -50px rgba(69, 230, 200, 0.55);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .shimmer-track {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer-track::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+    animation: shimmer 2.4s linear infinite;
+    pointer-events: none;
+  }
+
+  .line-clamp-1 {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .nova-pop {
+    animation: nova-pop 0.14s ease-out;
+  }
+
+  .nova-fade {
+    animation: nova-fade 0.16s ease-out;
+  }
+}
+
+.window-control {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 36px;
+  color: color-mix(in srgb, var(--mist) 55%, transparent);
+  transition:
+    background-color 0.16s ease,
+    color 0.16s ease;
+}
+.window-control:hover {
+  background: color-mix(in srgb, var(--fog) 6%, transparent);
+  color: var(--mist);
+}
+.window-control.close:hover {
+  background: rgba(220, 38, 38, 0.88);
+  color: #fff;
+}

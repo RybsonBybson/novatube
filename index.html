@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <link rel="icon" type="image/png" href="./icon.png" />
+    <title>NovaTube</title>
+    <script>
+      /* Apply the last resolved theme before the first paint. */
+      try {
+        var theme = localStorage.getItem("novatube-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.dataset.theme = theme;
+          document.documentElement.style.colorScheme = theme;
+        }
+      } catch (error) {
+        /* Storage can be unavailable; the default boot screen is fine. */
+      }
+    </script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #08090f;
+        color: #f3f2ee;
+        overflow: hidden;
+      }
+      html[data-theme="light"],
+      html[data-theme="light"] body {
+        background: #f8f7f3;
+        color: #191a20;
+      }
+      #root {
+        min-height: 100vh;
+      }
+      .boot {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: inherit;
+      }
+      .boot-mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: linear-gradient(118deg, #c9f63f, #45e6c8 52%, #ff8a6b);
+        animation: boot-pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes boot-pulse {
+        0%,
+        100% {
+          opacity: 0.35;
+          transform: scale(0.9);
+        }
+        50% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <div class="boot" id="boot-screen"><div class="boot-mark"></div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
