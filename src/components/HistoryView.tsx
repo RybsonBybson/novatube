@@ -115,7 +115,7 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
     <div className="relative min-h-full">
       <div className="relative mx-auto w-full max-w-[1020px] px-8 pb-24 pt-14 lg:px-10">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-aqua-ink/80">Collection</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-ink/80">Collection</p>
           <h1 className="mt-4 font-display text-[36px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Library</h1>
           <p className="mt-3 text-[11.5px] text-mute/55">
             {pluralize(entries.length, "item")} · {videoCount} video · {audioCount} audio · {formatBytes(totalSize)}
@@ -184,7 +184,7 @@ export function HistoryView({ entries, loaded, downloads, onRemove, onClear }: H
 
           {!loaded ? (
             <div className="flex items-center justify-center gap-2 py-14 text-[11px] text-mute/40">
-              <Spinner className="size-3.5 text-lime-ink" />
+              <Spinner className="size-3.5 text-saffron-ink" />
               Loading library
             </div>
           ) : null}
@@ -267,7 +267,7 @@ function HistoryRow({
         <IconButton label="Show in folder" onClick={() => onOpenFolder(entry)}>
           <FolderOpen className="size-3.5" />
         </IconButton>
-        <IconButton label="Download again" tone="aqua" onClick={() => onRedownload(entry)}>
+        <IconButton label="Download again" tone="sky" onClick={() => onRedownload(entry)}>
           <ArrowDownToLine className="size-3.5" />
         </IconButton>
         <IconButton label="Remove from library" tone="danger" onClick={() => onRemove(entry)}>

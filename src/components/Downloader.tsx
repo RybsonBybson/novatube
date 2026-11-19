@@ -256,7 +256,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
       <div className="relative mx-auto w-full max-w-[1020px] px-8 pb-24 pt-14 lg:px-10">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: "easeOut" }}>
-            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-aqua-ink/80">
+            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-ink/80">
               <Zap className="size-3" />
               Media studio
             </p>
@@ -293,7 +293,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
             idleHint={
               quick ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <Wand2 className="size-3 text-lime-ink/70" />
+                  <Wand2 className="size-3 text-saffron-ink/70" />
                   One click uses your preset · {optionsSummary(quickOptions)}
                 </span>
               ) : (
@@ -348,14 +348,14 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
 
         {enginePreparing ? (
           <div className="mt-5 flex items-center gap-3 rounded-2xl bg-fog/[0.03] px-4 py-3">
-            <Spinner className="size-4 shrink-0 text-lime-ink" />
+            <Spinner className="size-4 shrink-0 text-saffron-ink" />
             <div className="min-w-0 flex-1">
               <p className="text-[10.5px] text-mute/70">
                 {engine?.state === "updating" ? "Updating yt-dlp" : "Preparing yt-dlp"} · {engine?.progress ?? 0}%
               </p>
               <div className="mt-2 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
                 <motion.div
-                  className="h-full rounded-full bg-gradient-to-r from-lime to-aqua"
+                  className="h-full rounded-full bg-gradient-to-r from-saffron to-orange"
                   animate={{ width: `${engine?.progress ?? 0}%` }}
                   transition={{ type: "spring", stiffness: 100, damping: 24 }}
                 />
@@ -394,7 +394,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
             <div>
               <h2 className="font-display text-[16px] font-semibold tracking-[-0.02em] text-mist/90">Queue</h2>
               <p className="mt-1 flex items-center gap-1.5 text-[10.5px] text-mute/50">
-                <Gauge className="size-3 text-lime-ink/60" />
+                <Gauge className="size-3 text-saffron-ink/60" />
                 {runningCount > 0
                   ? `${runningCount} downloading · ${queue.length} total`
                   : queue.length
@@ -417,7 +417,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                 <button
                   type="button"
                   onClick={downloads.clearFinished}
-                  className="ml-1 rounded-full px-3 py-1.5 text-[10.5px] font-medium text-mute outline-none transition-colors hover:bg-fog/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-lime/45"
+                  className="ml-1 rounded-full px-3 py-1.5 text-[10.5px] font-medium text-mute outline-none transition-colors hover:bg-fog/[0.06] hover:text-mist focus-visible:ring-2 focus-visible:ring-saffron/45"
                 >
                   Clear
                 </button>

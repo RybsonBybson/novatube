@@ -102,8 +102,8 @@ export function AdvancedOptions({ options, onChange, media, className }: Advance
                       title={preset.description}
                       onClick={() => onChange({ compression: preset.id })}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-lime/45",
-                        active ? "bg-peach/20 text-peach-ink" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.08] hover:text-mist/85",
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/45",
+                        active ? "bg-orange/20 text-orange-ink" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.08] hover:text-mist/85",
                       )}
                     >
                       {active ? <Check className="size-3" strokeWidth={3} /> : null}

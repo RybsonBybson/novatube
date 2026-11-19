@@ -29,9 +29,9 @@ export function useToast(): ToastContextValue {
 }
 
 const TOAST_STYLE: Record<ToastType, { icon: typeof Info; tile: string; iconClass: string }> = {
-  success: { icon: CheckCircle2, tile: "bg-lime/10", iconClass: "text-lime-ink" },
+  success: { icon: CheckCircle2, tile: "bg-saffron/10", iconClass: "text-saffron-ink" },
   error: { icon: AlertCircle, tile: "bg-danger/10", iconClass: "text-danger" },
-  info: { icon: Info, tile: "bg-peach/10", iconClass: "text-peach-ink" },
+  info: { icon: Info, tile: "bg-sky/10", iconClass: "text-sky-ink" },
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {

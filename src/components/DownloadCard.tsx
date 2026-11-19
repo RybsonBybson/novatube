@@ -33,12 +33,12 @@ interface DownloadCardProps {
 
 const STATUS: Record<DownloadStatus, { label: string; icon: typeof Clock3; text: string; bar: string }> = {
   queued: { label: "Queued", icon: Clock3, text: "text-mute/60", bar: "bg-fog/20" },
-  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-lime-ink", bar: "bg-gradient-to-r from-lime to-aqua" },
-  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-lime-ink", bar: "bg-gradient-to-r from-lime to-aqua" },
-  processing: { label: "Processing", icon: Layers, text: "text-aqua-ink", bar: "bg-gradient-to-r from-aqua to-peach" },
-  compressing: { label: "Compressing", icon: Layers, text: "text-aqua-ink", bar: "bg-gradient-to-r from-aqua to-peach" },
-  completed: { label: "Done", icon: CheckCircle2, text: "text-lime-ink/80", bar: "bg-lime/60" },
-  paused: { label: "Paused", icon: Pause, text: "text-peach-ink", bar: "bg-peach/60" },
+  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-saffron-ink", bar: "bg-gradient-to-r from-saffron to-orange" },
+  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-saffron-ink", bar: "bg-gradient-to-r from-saffron to-orange" },
+  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-gradient-to-r from-mauve to-pink" },
+  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-gradient-to-r from-mauve to-pink" },
+  completed: { label: "Done", icon: CheckCircle2, text: "text-saffron-ink/80", bar: "bg-saffron/60" },
+  paused: { label: "Paused", icon: Pause, text: "text-orange-ink", bar: "bg-orange/60" },
   cancelled: { label: "Cancelled", icon: Ban, text: "text-mute/50", bar: "bg-fog/15" },
   error: { label: "Failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
 };
@@ -189,7 +189,7 @@ export function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRem
             </div>
           ) : null}
           {item.notice ? (
-            <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-peach/[0.07] px-2.5 py-2 text-[9.5px] leading-relaxed text-peach-ink/70">
+            <div className="mt-2 flex items-start gap-1.5 rounded-xl bg-orange/[0.07] px-2.5 py-2 text-[9.5px] leading-relaxed text-orange-ink/70">
               <Info className="mt-0.5 size-3 shrink-0" />
               <span>{item.notice}</span>
             </div>
@@ -222,7 +222,7 @@ function CardAction({
       className={cn(
         "grid size-7 place-items-center rounded-full text-mute/70 transition-colors hover:bg-fog/[0.06] hover:text-mist",
         tone === "danger" && "hover:bg-danger/12 hover:text-danger",
-        tone === "accent" && "hover:bg-lime/12 hover:text-lime-ink",
+        tone === "accent" && "hover:bg-saffron/12 hover:text-saffron-ink",
       )}
     >
       {children}
@@ -239,7 +239,7 @@ export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
       <p className="mt-3 text-[12px] font-medium text-mute">Queue is empty</p>
       <p className="mt-1 max-w-xs text-[10.5px] leading-relaxed text-mute/50">Paste a link above to start. Downloads keep running while you browse.</p>
       {onBrowse ? (
-        <button type="button" onClick={onBrowse} className="mt-3 text-[10.5px] font-medium text-lime-ink/80 hover:text-lime-ink">
+        <button type="button" onClick={onBrowse} className="mt-3 text-[10.5px] font-medium text-saffron-ink/80 hover:text-saffron-ink">
           Open library
         </button>
       ) : null}
@@ -257,7 +257,7 @@ export function MetadataSkeleton() {
           <div className="h-5 w-4/5 rounded-full bg-fog/[0.07]" />
           <div className="h-5 w-3/5 rounded-full bg-fog/[0.05]" />
           <div className="flex items-center gap-2 pt-2 text-[10.5px] text-mute/60">
-            <Spinner className="size-3.5 text-lime-ink" />
+            <Spinner className="size-3.5 text-saffron-ink" />
             Reading metadata…
           </div>
         </div>

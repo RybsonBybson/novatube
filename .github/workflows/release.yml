@@ -1,0 +1,80 @@
+name: Release
+
+# Every push (i.e. every commit landing on GitHub) publishes a fresh release
+# with freshly built Windows installers.
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build & release (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Ensure ffmpeg resource
+        shell: pwsh
+        run: |
+          $dest = "src-tauri/resources/bin/ffmpeg.exe"
+          if (Test-Path $dest) {
+            Write-Host "ffmpeg resource already present"
+            exit 0
+          }
+          Write-Host "ffmpeg resource missing — fetching a static build"
+          New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+          npm install --no-save ffmpeg-static
+          Copy-Item "node_modules/ffmpeg-static/ffmpeg.exe" $dest
+
+      - name: Compute build metadata
+        id: meta
+        shell: pwsh
+        run: |
+          $sha = "${{ github.sha }}".Substring(0, 7)
+          $version = (Get-Content "src-tauri/tauri.conf.json" -Raw | ConvertFrom-Json).version
+          "short_sha=$sha" >> $env:GITHUB_OUTPUT
+          "app_version=$version" >> $env:GITHUB_OUTPUT
+          "tag=v$version.${{ github.run_number }}.${{ github.run_attempt }}-$sha" >> $env:GITHUB_OUTPUT
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ steps.meta.outputs.tag }}
+          releaseName: "NovaTube ${{ steps.meta.outputs.app_version }} (${{ steps.meta.outputs.short_sha }})"
+          releaseBody: |
+            Automated build from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+
+            - yt-dlp is downloaded on first launch
+            - ffmpeg is bundled with the installer
+          releaseDraft: false
+          prerelease: false

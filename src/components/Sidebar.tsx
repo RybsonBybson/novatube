@@ -36,7 +36,7 @@ export function Sidebar({ view, onChange, activeCount, binaries, onOpenSettings 
                 type="button"
                 onClick={() => onChange(item.id)}
                 className={cn(
-                  "group relative flex w-full flex-col items-center gap-1.5 rounded-2xl py-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-lime/45",
+                  "group relative flex w-full flex-col items-center gap-1.5 rounded-2xl py-2.5 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/45",
                   active ? "text-mist" : "text-mute/70 hover:text-mist/80",
                 )}
               >
@@ -44,7 +44,7 @@ export function Sidebar({ view, onChange, activeCount, binaries, onOpenSettings 
                   <motion.span
                     layoutId="sidebar-active"
                     transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                    className="absolute inset-0 rounded-2xl bg-fog/[0.06] ring-1 ring-lime/20"
+                    className="absolute inset-0 rounded-2xl bg-fog/[0.06] ring-1 ring-saffron/20"
                   />
                 ) : null}
                 <span className="relative">
@@ -66,15 +66,15 @@ export function Sidebar({ view, onChange, activeCount, binaries, onOpenSettings 
         <button
           type="button"
           onClick={onOpenSettings}
-          className="mt-auto flex flex-col items-center gap-2 rounded-2xl px-3 py-3 outline-none transition-colors hover:bg-fog/[0.05] focus-visible:ring-2 focus-visible:ring-lime/45"
+          className="mt-auto flex flex-col items-center gap-2 rounded-2xl px-3 py-3 outline-none transition-colors hover:bg-fog/[0.05] focus-visible:ring-2 focus-visible:ring-saffron/45"
         >
           <span className="relative grid size-4 place-items-center">
             {busy ? (
-              <Spinner className="size-3 text-aqua-ink" />
+              <Spinner className="size-3 text-mauve-ink" />
             ) : ready ? (
-              <span className="size-1.5 rounded-full bg-lime shadow-[0_0_10px_rgba(201,246,63,0.9)]" />
+              <span className="size-1.5 rounded-full bg-saffron shadow-[0_0_10px_rgba(240,188,0,0.9)]" />
             ) : (
-              <span className="size-1.5 rounded-full bg-peach" />
+              <span className="size-1.5 rounded-full bg-orange" />
             )}
           </span>
           <span className="text-[7.5px] font-medium uppercase tracking-[0.14em] text-mute/60">{ready ? "Ready" : busy ? "Setup" : "Offline"}</span>

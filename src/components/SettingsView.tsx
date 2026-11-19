@@ -89,7 +89,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
   return (
     <div className="relative min-h-full">
       <div className="relative mx-auto w-full max-w-[1020px] px-8 pb-24 pt-14 lg:px-10">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-aqua-ink/80">Preferences</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-ink/80">Preferences</p>
         <h1 className="mt-4 font-display text-[36px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Settings</h1>
         <p className="mt-3 text-[11.5px] text-mute/55">Quick mode downloads use these instantly — no extra choices.</p>
 
@@ -97,7 +97,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
 
         {!settings ? (
           <div className="mt-12 flex items-center justify-center gap-2 text-[11px] text-mute/40">
-            <Spinner className="size-4 text-lime-ink" />
+            <Spinner className="size-4 text-saffron-ink" />
             Loading settings
           </div>
         ) : (
@@ -106,7 +106,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <SectionTitle title="Quick download preset" subtitle="Applied the moment you paste a link" accent />
                 {preset ? (
-                  <span className="rounded-full bg-lime/12 px-3 py-1 text-[10.5px] font-semibold text-lime-ink">{optionsSummary(preset)}</span>
+                  <span className="rounded-full bg-saffron/12 px-3 py-1 text-[10.5px] font-semibold text-saffron-ink">{optionsSummary(preset)}</span>
                 ) : null}
               </div>
 
@@ -217,7 +217,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
               <div className="mt-6">
                 <Label>Save to</Label>
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-fog/[0.05] px-3.5 py-2.5 transition-colors focus-within:bg-fog/[0.08] focus-within:ring-1 focus-within:ring-lime/35">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-fog/[0.05] px-3.5 py-2.5 transition-colors focus-within:bg-fog/[0.08] focus-within:ring-1 focus-within:ring-saffron/35">
                     <FolderDown className="size-3.5 shrink-0 text-mute/60" />
                     <span className="truncate text-[10.5px] text-mist/70" title={settings.downloadDir}>
                       {truncateMiddle(settings.downloadDir, 44)}
@@ -235,7 +235,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
               <div className="mt-7">
                 <div className="flex items-center justify-between">
                   <Label>Simultaneous downloads</Label>
-                  <span className="font-mono text-[11px] tabular-nums text-lime-ink">{settings.concurrency}</span>
+                  <span className="font-mono text-[11px] tabular-nums text-saffron-ink">{settings.concurrency}</span>
                 </div>
                 <div className="mt-3">
                   <Slider value={settings.concurrency} min={1} max={5} label="Simultaneous downloads" onChange={(value) => void save({ concurrency: value })} />
@@ -308,7 +308,7 @@ export function SettingsView({ settings, settingsError, onUpdate, binaries, onUp
               </div>
 
               <p className="mt-6 flex items-center gap-2 text-[10px] text-mute/40">
-                <Check className="size-3 text-aqua-ink/70" />
+                <Check className="size-3 text-sky-ink/70" />
                 NovaTube {appInfo?.version ?? "1.0.0"} · Tauri {appInfo?.tauri ?? "—"} · no telemetry
               </p>
             </Panel>
@@ -385,13 +385,13 @@ function BinaryCard({
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {busy ? (
-            <Spinner className="size-3.5 text-lime-ink" />
+            <Spinner className="size-3.5 text-saffron-ink" />
           ) : (
-            <span className={cn("size-[6px] rounded-full", ready ? "bg-lime" : "bg-warn")} />
+            <span className={cn("size-[6px] rounded-full", ready ? "bg-saffron" : "bg-warn")} />
           )}
           <span className="font-mono text-[11px] font-medium text-mist/75">{name}</span>
         </div>
-        <span className={cn("text-[9px] uppercase tracking-[0.12em]", ready ? "text-lime-ink/80" : "text-warn/80")}>
+        <span className={cn("text-[9px] uppercase tracking-[0.12em]", ready ? "text-saffron-ink/80" : "text-warn/80")}>
           {busy && state === "checking" ? "checking" : state}
         </span>
       </div>
@@ -401,7 +401,7 @@ function BinaryCard({
       {busy && state !== "checking" ? (
         <div className="mt-2 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-lime to-aqua"
+            className="h-full rounded-full bg-gradient-to-r from-saffron to-orange"
             animate={{ width: `${progress}%` }}
             transition={{ type: "spring", stiffness: 100, damping: 22 }}
           />

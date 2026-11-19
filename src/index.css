@@ -3,6 +3,8 @@
 /*
  * Theme tokens are plain CSS variables so the whole UI can switch between
  * dark and light at runtime. `@theme inline` maps them into Tailwind colors.
+ * Accents come from the NovaTube palette: Saffron, Princeton Orange,
+ * Bubblegum Pink, Mauve Magic and Baby Blue Ice.
  * A shadcn-compatible token layer (background, card, popover, primary, …)
  * sits on top so the Radix primitives in `components/ui` share one skin.
  */
@@ -17,13 +19,16 @@
   --color-ink-750: var(--ink-750);
   --color-ink-700: var(--ink-700);
 
-  --color-lime: var(--lime);
-  --color-lime-ink: var(--lime-ink);
-  --color-lime-dim: var(--lime-dim);
-  --color-peach: var(--peach);
-  --color-peach-ink: var(--peach-ink);
-  --color-aqua: var(--aqua);
-  --color-aqua-ink: var(--aqua-ink);
+  --color-saffron: var(--saffron);
+  --color-saffron-ink: var(--saffron-ink);
+  --color-orange: var(--orange);
+  --color-orange-ink: var(--orange-ink);
+  --color-pink: var(--pink);
+  --color-pink-ink: var(--pink-ink);
+  --color-mauve: var(--mauve);
+  --color-mauve-ink: var(--mauve-ink);
+  --color-sky: var(--sky);
+  --color-sky-ink: var(--sky-ink);
   --color-mist: var(--mist);
   --color-mute: var(--mute);
 
@@ -62,36 +67,41 @@
 :root {
   color-scheme: dark;
 
-  --ink-950: #08090f;
-  --ink-900: #0c0e16;
-  --ink-850: #12141d;
-  --ink-800: #181b26;
-  --ink-750: #222634;
-  --ink-700: #2e3446;
+  --ink-950: #0a0a0c;
+  --ink-900: #0f0f13;
+  --ink-850: #16161b;
+  --ink-800: #1d1d24;
+  --ink-750: #27272f;
+  --ink-700: #343440;
 
-  --lime: #c9f63f;
-  --lime-ink: #c9f63f;
-  --lime-dim: #9dc72c;
-  --peach: #ff8a6b;
-  --peach-ink: #ff8a6b;
-  --aqua: #45e6c8;
-  --aqua-ink: #45e6c8;
-  --mist: #f3f2ee;
-  --mute: #8b90a4;
+  /* NovaTube palette */
+  --saffron: #f0bc00;
+  --saffron-ink: #f0bc00;
+  --orange: #ff8b1f;
+  --orange-ink: #ff8b1f;
+  --pink: #ff476f;
+  --pink-ink: #ff476f;
+  --mauve: #d175ff;
+  --mauve-ink: #d175ff;
+  --sky: #9ebdff;
+  --sky-ink: #9ebdff;
+
+  --mist: #f5f4f0;
+  --mute: #8c8c98;
 
   --fog: #ffffff;
-  --on-accent: #0c1006;
-  --danger: #ff6b78;
-  --warn: #ffc24b;
+  --on-accent: #1c1500;
+  --danger: #ff476f;
+  --warn: #ff8b1f;
 
   /* shadcn-compatible surfaces */
   --background: var(--ink-950);
   --foreground: var(--mist);
   --card: var(--ink-850);
   --card-foreground: var(--mist);
-  --popover: #171a25;
+  --popover: #1b1b22;
   --popover-foreground: var(--mist);
-  --primary: var(--lime);
+  --primary: var(--saffron);
   --primary-foreground: var(--on-accent);
   --secondary: rgba(255, 255, 255, 0.07);
   --secondary-foreground: var(--mist);
@@ -100,43 +110,47 @@
   --accent: rgba(255, 255, 255, 0.09);
   --accent-foreground: var(--mist);
   --destructive: var(--danger);
-  --destructive-foreground: #1a0507;
+  --destructive-foreground: #2a0510;
   --border: rgba(255, 255, 255, 0.09);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(201, 246, 63, 0.55);
+  --ring: rgba(240, 188, 0, 0.55);
 
   --scroll: rgba(255, 255, 255, 0.09);
   --scroll-hover: rgba(255, 255, 255, 0.18);
-  --selection: rgba(201, 246, 63, 0.28);
-  --focus-ring: rgba(201, 246, 63, 0.55);
+  --selection: rgba(240, 188, 0, 0.28);
+  --focus-ring: rgba(240, 188, 0, 0.55);
   --slider-track: rgba(255, 255, 255, 0.1);
-  --shimmer: rgba(8, 9, 15, 0.32);
+  --shimmer: rgba(10, 10, 12, 0.32);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --ink-950: #f8f7f3;
-  --ink-900: #f0ede5;
+  --ink-950: #faf9f5;
+  --ink-900: #f1efe8;
   --ink-850: #ffffff;
-  --ink-800: #f3f0e9;
-  --ink-750: #e8e4d9;
-  --ink-700: #d9d3c5;
+  --ink-800: #f4f1ea;
+  --ink-750: #e9e5da;
+  --ink-700: #dad4c6;
 
-  --lime: #c9f63f;
-  --lime-ink: #597505;
-  --lime-dim: #9dc72c;
-  --peach: #ff9c78;
-  --peach-ink: #b2481f;
-  --aqua: #16c2a3;
-  --aqua-ink: #0b7a66;
-  --mist: #191a20;
-  --mute: #6d7181;
+  --saffron: #f0bc00;
+  --saffron-ink: #7d6100;
+  --orange: #ff8b1f;
+  --orange-ink: #a85200;
+  --pink: #ff476f;
+  --pink-ink: #c41f47;
+  --mauve: #c45bff;
+  --mauve-ink: #8614d4;
+  --sky: #7aa2ff;
+  --sky-ink: #2a55c4;
+
+  --mist: #1a1a1f;
+  --mute: #6c6c78;
 
   --fog: #000000;
-  --on-accent: #17190c;
-  --danger: #c62f3a;
-  --warn: #a56a00;
+  --on-accent: #1c1500;
+  --danger: #c41f47;
+  --warn: #a85200;
 
   --background: var(--ink-950);
   --foreground: var(--mist);
@@ -144,8 +158,8 @@
   --card-foreground: var(--mist);
   --popover: #ffffff;
   --popover-foreground: var(--mist);
-  --primary: #a9d81f;
-  --primary-foreground: #17190c;
+  --primary: #d9a800;
+  --primary-foreground: #1c1500;
   --secondary: rgba(0, 0, 0, 0.05);
   --secondary-foreground: var(--mist);
   --muted: rgba(0, 0, 0, 0.045);
@@ -156,12 +170,12 @@
   --destructive-foreground: #ffffff;
   --border: rgba(0, 0, 0, 0.1);
   --input: rgba(0, 0, 0, 0.08);
-  --ring: rgba(126, 155, 10, 0.5);
+  --ring: rgba(160, 116, 0, 0.5);
 
   --scroll: rgba(0, 0, 0, 0.14);
   --scroll-hover: rgba(0, 0, 0, 0.26);
-  --selection: rgba(163, 196, 20, 0.32);
-  --focus-ring: rgba(126, 155, 10, 0.5);
+  --selection: rgba(240, 188, 0, 0.3);
+  --focus-ring: rgba(160, 116, 0, 0.5);
   --slider-track: rgba(0, 0, 0, 0.11);
   --shimmer: rgba(255, 255, 255, 0.5);
 }
@@ -297,13 +311,14 @@
     font-family: var(--font-display);
   }
 
-  /* The only brand gradient: logo mark + primary CTA. */
+  /* The brand gradient: Saffron → Orange → Bubblegum Pink. */
   .nova-gradient {
-    background-image: linear-gradient(118deg, #c9f63f 0%, #45e6c8 48%, #ff8a6b 100%);
+    background-image: linear-gradient(118deg, #f0bc00 0%, #ff8b1f 48%, #ff476f 100%);
   }
 
+  /* Full-spectrum display treatment for headline accents. */
   .nova-text {
-    background-image: linear-gradient(102deg, #e4ff9c 0%, #c9f63f 40%, #45e6c8 68%, #ff8a6b 100%);
+    background-image: linear-gradient(100deg, #f0bc00 0%, #ff8b1f 34%, #ff476f 62%, #d175ff 84%, #9ebdff 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -326,14 +341,6 @@
     background: color-mix(in srgb, var(--ink-950) 82%, transparent);
     backdrop-filter: blur(26px) saturate(120%);
     -webkit-backdrop-filter: blur(26px) saturate(120%);
-  }
-
-  .glow-accent {
-    box-shadow: 0 30px 90px -48px rgba(201, 246, 63, 0.6);
-  }
-
-  .glow-aqua {
-    box-shadow: 0 30px 90px -50px rgba(69, 230, 200, 0.55);
   }
 
   .text-balance {
@@ -396,6 +403,6 @@
   color: var(--mist);
 }
 .window-control.close:hover {
-  background: rgba(220, 38, 38, 0.88);
+  background: rgba(255, 71, 111, 0.88);
   color: #fff;
 }

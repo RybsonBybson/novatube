@@ -23,7 +23,7 @@ export function Segmented<T extends string>({ value, options, onChange, layoutId
               key={option.id}
               value={option.id}
               className={cn(
-                "relative inline-flex items-center justify-center rounded-xl px-3.5 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-lime/45",
+                "relative inline-flex items-center justify-center rounded-xl px-3.5 font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/45",
                 size === "sm" ? "h-7 text-[11px]" : "h-8 text-[11.5px]",
                 active ? "text-on-accent" : "text-mute hover:text-mist",
               )}
@@ -32,7 +32,7 @@ export function Segmented<T extends string>({ value, options, onChange, layoutId
                 <motion.span
                   layoutId={layoutId}
                   transition={{ type: "spring", stiffness: 450, damping: 34 }}
-                  className="absolute inset-0 rounded-xl bg-lime shadow-[0_10px_28px_-14px_rgba(201,246,63,0.9)]"
+                  className="absolute inset-0 rounded-xl bg-saffron shadow-[0_10px_28px_-14px_rgba(240,188,0,0.9)]"
                 />
               ) : null}
               <span className="relative z-10 inline-flex items-center gap-1.5">

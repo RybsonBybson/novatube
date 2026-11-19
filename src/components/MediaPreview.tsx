@@ -98,7 +98,7 @@ export function MediaPreview({ media, options, onChange, onDownload, onOpenPlayl
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[10.5px] text-mute/70">
-              <Gauge className="size-3.5 text-lime-ink/70" />
+              <Gauge className="size-3.5 text-saffron-ink/70" />
               {optionsSummary(options)}
             </div>
             <Button size="md" onClick={onDownload} loading={adding} className="min-w-[168px]">

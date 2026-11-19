@@ -34,7 +34,7 @@ export function DialogContent({ className, children, showClose = true, ...props 
         {showClose ? (
           <DialogPrimitive.Close
             aria-label="Close"
-            className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-mute outline-none transition-colors hover:bg-fog/[0.07] hover:text-mist focus-visible:ring-2 focus-visible:ring-lime/45"
+            className="absolute right-4 top-4 grid size-8 place-items-center rounded-full text-mute outline-none transition-colors hover:bg-fog/[0.07] hover:text-mist focus-visible:ring-2 focus-visible:ring-saffron/45"
           >
             <X className="size-4" />
           </DialogPrimitive.Close>
