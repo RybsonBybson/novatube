@@ -58,8 +58,8 @@ export default function App() {
       engineErrorRef.current = true;
       toast.push({
         type: "error",
-        title: "Download engine needs attention",
-        message: binaries?.ytDlp.message ?? "Open Settings and update yt-dlp to continue.",
+        title: "The media engine needs attention",
+        message: "Open Settings to refresh the media engine and continue.",
       });
     }
     if (state === "ready") engineErrorRef.current = false;
