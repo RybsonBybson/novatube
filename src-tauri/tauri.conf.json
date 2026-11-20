@@ -48,7 +48,7 @@
   },
   "plugins": {
     "updater": {
-      "endpoints": ["https://github.com/RybsonBybson/yt-downloader/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/RybsonBybson/novatube/releases/latest/download/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDODQ0NjcwNjdBMjUyQ0MKUldUTVVxSm5jRWFFdkpwOFBxc3c3U3FnRlcxRjRzUkNUYVBHMjZsbVNaWC9kM05XZTU5KzdwRkUK"
     }
   }
