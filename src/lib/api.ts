@@ -106,6 +106,7 @@ export const api: NovaApi = {
     retry: (id: string) => call<void>("downloads_retry", { id }),
     remove: (id: string) => call<void>("downloads_remove", { id }),
     clearFinished: () => call<void>("downloads_clear_finished"),
+    clearAll: () => call<void>("downloads_clear_all"),
     openFile: (id: string) => call<void>("downloads_open_file", { id }),
     openFolder: (id: string) => call<void>("downloads_open_folder", { id }),
     onUpdate: (callback) => subscribe<DownloadItem>("downloads:update", callback),

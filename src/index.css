@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* The desktop UI only lives in ./src and ./shared; keep the sibling
+ * standalone web apps out of this stylesheet's source scan. */
+@source not "../front";
+@source not "../frontend";
+
 /*
  * Theme tokens are plain CSS variables so the whole UI can switch between
  * dark and light at runtime. `@theme inline` maps them into Tailwind colors.

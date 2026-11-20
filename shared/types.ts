@@ -198,6 +198,7 @@ export interface NovaApi {
     retry(id: string): Promise<void>;
     remove(id: string): Promise<void>;
     clearFinished(): Promise<void>;
+    clearAll(): Promise<void>;
     openFile(id: string): Promise<void>;
     openFolder(id: string): Promise<void>;
     onUpdate(cb: (item: DownloadItem) => void): () => void;

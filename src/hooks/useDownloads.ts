@@ -71,6 +71,7 @@ export function useDownloads() {
   const retry = useCallback((id: string) => void guard(() => api.downloads.retry(id)), [guard]);
   const remove = useCallback((id: string) => void guard(() => api.downloads.remove(id)), [guard]);
   const clearFinished = useCallback(() => void guard(() => api.downloads.clearFinished()), [guard]);
+  const clearAll = useCallback(() => void guard(() => api.downloads.clearAll()), [guard]);
   const openFile = useCallback((id: string) => void guard(() => api.downloads.openFile(id)), [guard]);
   const openFolder = useCallback((id: string) => void guard(() => api.downloads.openFolder(id)), [guard]);
 
@@ -85,6 +86,7 @@ export function useDownloads() {
     retry,
     remove,
     clearFinished,
+    clearAll,
     openFile,
     openFolder,
   };

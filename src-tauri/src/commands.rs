@@ -82,6 +82,12 @@ pub async fn downloads_clear_finished(state: State<'_, AppState>) -> Result<(), 
 }
 
 #[tauri::command]
+pub async fn downloads_clear_all(state: State<'_, AppState>) -> Result<(), String> {
+    state.queue.clear_all();
+    Ok(())
+}
+
+#[tauri::command]
 pub fn downloads_open_file(id: String, state: State<'_, AppState>) -> Result<(), String> {
     let item = state.queue.get(&id).ok_or("The file is not available yet.")?;
     let path = item.output_path.ok_or("The file is not available yet.")?;

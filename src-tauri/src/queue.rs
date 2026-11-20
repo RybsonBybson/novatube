@@ -23,6 +23,7 @@ const ACTIVE_STATUSES: [&str; 4] = ["fetching", "downloading", "processing", "co
 const FINISHED_STATUSES: [&str; 3] = ["completed", "cancelled", "error"];
 const TITLE_PRINT: &str = "__NOVA_TITLE__";
 const FILE_PRINT: &str = "__NOVA_FILE__";
+const VCODEC_PRINT: &str = "__NOVA_VCODEC__";
 const PROGRESS_PRINT: &str = "__NOVA_PROGRESS__";
 
 struct RunState {
@@ -31,6 +32,8 @@ struct RunState {
     paused: bool,
     final_path: Option<String>,
     destination: Option<String>,
+    /// Video codec of the produced file, reported by yt-dlp after the move.
+    vcodec: Option<String>,
 }
 
 impl RunState {
@@ -41,6 +44,7 @@ impl RunState {
             paused: false,
             final_path: None,
             destination: None,
+            vcodec: None,
         }
     }
 }
@@ -386,6 +390,37 @@ impl DownloadQueue {
         self.schedule();
     }
 
+    /// Emergency stop: kill every child process, drop the whole queue and make
+    /// sure the emptied queue is written to disk immediately, so nothing comes
+    /// back on the next launch.
+    pub fn clear_all(&self) {
+        let pids: Vec<u32> = {
+            let mut inner = self.lock();
+            let mut pids = Vec::new();
+            for run in inner.runs.values_mut() {
+                run.cancelled = true;
+                run.paused = false;
+                if let Some(pid) = run.pid {
+                    pids.push(pid);
+                }
+            }
+            inner.items.clear();
+            inner.order.clear();
+            pids
+        };
+
+        for pid in pids {
+            kill_pid(pid);
+        }
+
+        // Spawned tasks exit on their own once `is_stopped` sees the item gone;
+        // the run bookkeeping is cleaned up by `finish_run`.
+        self.mark_dirty();
+        self.persist_now();
+        let _ = self.app.emit("downloads:cleared", ());
+        self.emit_snapshot();
+    }
+
     /// Closing the window must not throw away in-flight work. Stop the child
     /// processes, turn every active item back into a queued item and flush the
     /// snapshot, so the next launch continues exactly where this one stopped.
@@ -571,7 +606,52 @@ impl DownloadQueue {
             }
         };
 
+        // MP4/MKV files that yt-dlp could only produce as AV1 are re-encoded to
+        // H.264 — unless a compression preset is already going to re-encode them
+        // (those presets use H.264/H.265, never AV1).
         let preset = item.options.compression.clone();
+        let reencoded_by_preset =
+            item.options.kind == "video" && preset != "none" && ffmpeg.is_some();
+        let source_is_av1 = self
+            .run_vcodec(&id)
+            .as_deref()
+            .map(is_av1_codec)
+            .unwrap_or(false);
+
+        if item.options.kind == "video"
+            && !reencoded_by_preset
+            && item.options.container != "webm"
+            && source_is_av1
+        {
+            if let Some(ffmpeg) = ffmpeg.as_deref() {
+                self.update(&id, true, |item| {
+                    item.status = "processing".into();
+                    item.progress = 0.0;
+                    item.stage_detail = Some("Converting AV1 to H.264…".into());
+                    item.notice = Some(
+                        "This file was encoded in AV1, which most players cannot open, so NovaTube converted it to H.264."
+                            .into(),
+                    );
+                });
+
+                match self
+                    .transcode_to_h264(&id, Path::new(&final_path), item.duration, ffmpeg)
+                    .await
+                {
+                    Ok(path) => final_path = path.to_string_lossy().to_string(),
+                    Err(error) => {
+                        if self.is_stopped(&id) {
+                            self.finish_run(&id);
+                            return;
+                        }
+                        self.update(&id, true, |item| {
+                            item.notice = Some(format!("{error} The original file was kept."));
+                        });
+                    }
+                }
+            }
+        }
+
         if item.options.kind == "video" && preset != "none" {
             if ffmpeg.is_none() {
                 self.update(&id, true, |item| {
@@ -763,6 +843,14 @@ impl DownloadQueue {
             return;
         }
 
+        if let Some(index) = line.find(VCODEC_PRINT) {
+            let codec = line[index + VCODEC_PRINT.len()..].trim();
+            if !codec.is_empty() {
+                self.set_vcodec(id, codec);
+            }
+            return;
+        }
+
         if let Some(patch) = parse_progress(line) {
             let progress = item.progress.max(patch.progress.unwrap_or(0.0));
             self.update(id, false, |item| {
@@ -873,14 +961,84 @@ impl DownloadQueue {
         preset: &str,
         ffmpeg: &str,
     ) -> Result<PathBuf, String> {
+        let (video_args, audio_args) = preset_args(preset);
+        let video_args: Vec<String> = video_args.into_iter().map(str::to_string).collect();
+        let audio_args: Vec<String> = audio_args.into_iter().map(str::to_string).collect();
+        self.encode(
+            id,
+            input,
+            duration,
+            &video_args,
+            &audio_args,
+            "Compressing",
+            "Compression cancelled.",
+            "Compression failed",
+            ffmpeg,
+        )
+        .await
+    }
+
+    /// AV1 that reached the disk is re-encoded to H.264 so it opens in ordinary
+    /// players. The container is preserved, so the file keeps its name.
+    async fn transcode_to_h264(
+        &self,
+        id: &str,
+        input: &Path,
+        duration: Option<f64>,
+        ffmpeg: &str,
+    ) -> Result<PathBuf, String> {
+        let video_args = vec![
+            "-c:v:0".to_string(),
+            "libx264".into(),
+            "-preset".into(),
+            "medium".into(),
+            "-crf".into(),
+            "20".into(),
+            "-pix_fmt".into(),
+            "yuv420p".into(),
+        ];
+        let audio_args = vec!["-c:a".into(), "aac".into(), "-b:a".into(), "192k".into()];
+        self.encode(
+            id,
+            input,
+            duration,
+            &video_args,
+            &audio_args,
+            "Converting to H.264",
+            "Conversion cancelled.",
+            "Conversion failed",
+            ffmpeg,
+        )
+        .await
+    }
+
+    /// Shared FFmpeg pass: encode into a temporary file beside the input and
+    /// swap it in only when the whole encode succeeded, so a crash, cancel or
+    /// failure can never damage the already-downloaded media.
+    #[allow(clippy::too_many_arguments)]
+    async fn encode(
+        &self,
+        id: &str,
+        input: &Path,
+        duration: Option<f64>,
+        video_args: &[String],
+        audio_args: &[String],
+        stage: &str,
+        cancel_reason: &str,
+        failure_label: &str,
+        ffmpeg: &str,
+    ) -> Result<PathBuf, String> {
         let stem = input
             .file_stem()
             .map(|value| value.to_string_lossy().to_string())
             .unwrap_or_else(|| "video".into());
-        let temp = input.with_file_name(format!("{stem}.nova-compressed.tmp.mp4"));
+        let extension = input
+            .extension()
+            .map(|value| value.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_else(|| "mp4".into());
+        let temp = input.with_file_name(format!("{stem}.nova-encode.tmp.{extension}"));
         let _ = std::fs::remove_file(&temp);
 
-        let (video_args, audio_args) = preset_args(preset);
         let mut args: Vec<String> = vec![
             "-hide_banner".into(),
             "-y".into(),
@@ -899,8 +1057,12 @@ impl DownloadQueue {
             "copy".into(),
             "-map_metadata".into(),
             "0".into(),
-            "-movflags".into(),
-            "+faststart".into(),
+        ]);
+        // `-movflags` only exists on the mp4/mov muxers.
+        if matches!(extension.as_str(), "mp4" | "m4v" | "mov") {
+            args.extend(["-movflags".into(), "+faststart".into()]);
+        }
+        args.extend([
             "-progress".into(),
             "pipe:1".into(),
             "-nostats".into(),
@@ -948,7 +1110,7 @@ impl DownloadQueue {
                                 .round() as u8;
                             self.update(id, false, |item| {
                                 item.progress = percent as f64;
-                                item.stage_detail = Some(format!("Compressing · {percent}%"));
+                                item.stage_detail = Some(format!("{stage} · {percent}%"));
                             });
                         }
                     }
@@ -968,7 +1130,7 @@ impl DownloadQueue {
 
         if self.is_stopped(id) {
             let _ = std::fs::remove_file(&temp);
-            return Err("Compression cancelled.".into());
+            return Err(cancel_reason.into());
         }
         if !status.success() {
             let _ = std::fs::remove_file(&temp);
@@ -978,7 +1140,7 @@ impl DownloadQueue {
                 .last()
                 .unwrap_or("The conversion failed.");
             return Err(format!(
-                "Compression failed: {}",
+                "{failure_label}: {}",
                 line.trim().chars().take(300).collect::<String>()
             ));
         }
@@ -1164,6 +1326,16 @@ impl DownloadQueue {
         }
     }
 
+    fn set_vcodec(&self, id: &str, codec: &str) {
+        if let Some(run) = self.lock().runs.get_mut(id) {
+            run.vcodec = Some(codec.to_string());
+        }
+    }
+
+    fn run_vcodec(&self, id: &str) -> Option<String> {
+        self.lock().runs.get(id).and_then(|run| run.vcodec.clone())
+    }
+
     pub fn run_final_path(&self, id: &str) -> Option<String> {
         self.lock()
             .runs
@@ -1313,12 +1485,23 @@ fn build_format_args(options: &DownloadOptions) -> Vec<String> {
     let cap = quality_height(&options.quality)
         .map(|height| format!("[height<={height}]"))
         .unwrap_or_default();
+    // AV1 (`av01`) plays back badly or not at all in a lot of desktop software,
+    // which is what made playlist items look "unsupported". Every preferred
+    // candidate therefore excludes it and favours the container's natural codec
+    // (H.264 in MP4, VP9 in WebM). The last candidate is unfiltered so a video
+    // that only exists in AV1 still downloads — it is then transcoded to H.264
+    // after the fact (see `transcode_to_h264`).
+    let no_av1 = "[vcodec!*=av01]";
     let selector = match options.container.as_str() {
         "webm" => format!(
-            "bv*[ext=webm]{cap}+ba[ext=webm]/b[ext=webm]{cap}/bv*{cap}+ba/b{cap}"
+            "bv*[ext=webm][vcodec^=vp9]{cap}+ba[ext=webm]/bv*[ext=webm]{no_av1}{cap}+ba[ext=webm]/bv*{no_av1}{cap}+ba/b{cap}/bv*{cap}+ba/b{cap}"
         ),
-        "mp4" => format!("bv*[ext=mp4]{cap}+ba[ext=m4a]/b[ext=mp4]{cap}/bv*{cap}+ba/b{cap}"),
-        _ => format!("bv*{cap}+ba/b{cap}/bv*+ba/b"),
+        "mp4" => format!(
+            "bv*[ext=mp4][vcodec^=avc1]{cap}+ba[ext=m4a]/bv*[ext=mp4]{no_av1}{cap}+ba[ext=m4a]/bv*{no_av1}{cap}+ba/b{cap}/bv*{cap}+ba/b{cap}"
+        ),
+        _ => format!(
+            "bv*{no_av1}{cap}+ba/b{no_av1}{cap}/bv*{no_av1}+ba/b{no_av1}/bv*{cap}+ba/b{cap}"
+        ),
     };
 
     let mut args = vec![
@@ -1379,6 +1562,8 @@ fn progress_args() -> Vec<String> {
         format!("before_dl:{TITLE_PRINT}%(title)s"),
         "--print".into(),
         format!("after_move:{FILE_PRINT}%(filepath)s"),
+        "--print".into(),
+        format!("after_move:{VCODEC_PRINT}%(vcodec)s"),
         "--no-simulate".into(),
     ]
 }
@@ -1424,6 +1609,12 @@ fn resolve_output_dir(download_dir: &str, item: &DownloadItem) -> PathBuf {
         Some(folder) if !folder.is_empty() => base.join(folder),
         _ => base,
     }
+}
+
+/// `%(vcodec)s` looks like `av01.0.08M.08`, `avc1.640028` or `vp9`.
+fn is_av1_codec(codec: &str) -> bool {
+    let codec = codec.trim().to_ascii_lowercase();
+    codec.starts_with("av01") || codec.starts_with("av1.") || codec == "av1"
 }
 
 fn compression_stage(preset: &str) -> &'static str {

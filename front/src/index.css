@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+/*
+ * NovaTube landing page skin.
+ *
+ * Tokens follow the shadcn convention (`--background`, `--primary`, `--ring`, …)
+ * so `npx shadcn@latest add …` drops straight in, and `@theme inline` exposes
+ * them to Tailwind. The palette is the same Gemini-inspired set the desktop app
+ * uses: #4285f4 · #9b72cb · #d96570 · #24c1e0 over a #0b0d13 → #131620 mesh.
+ */
+
+@theme inline {
+  --font-sans: "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Inter Variable", system-ui, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-gemini-blue: var(--gemini-blue);
+  --color-gemini-purple: var(--gemini-purple);
+  --color-gemini-coral: var(--gemini-coral);
+  --color-gemini-cyan: var(--gemini-cyan);
+
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
+}
+
+:root {
+  color-scheme: dark;
+
+  --gemini-blue: #4285f4;
+  --gemini-purple: #9b72cb;
+  --gemini-coral: #d96570;
+  --gemini-cyan: #24c1e0;
+  --gemini-gradient: linear-gradient(96deg, #4285f4 0%, #9b72cb 38%, #d96570 72%, #24c1e0 100%);
+
+  --background: #0b0d13;
+  --foreground: #f3f4f8;
+  --card: rgba(19, 22, 32, 0.62);
+  --card-foreground: #f3f4f8;
+  --popover: #161a26;
+  --popover-foreground: #f3f4f8;
+  --primary: #4285f4;
+  --primary-foreground: #ffffff;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #f3f4f8;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #8b93a7;
+  --accent: rgba(255, 255, 255, 0.08);
+  --accent-foreground: #f3f4f8;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(66, 133, 244, 0.55);
+
+  --glass-tint: rgba(255, 255, 255, 0.035);
+  --glass-edge: rgba(255, 255, 255, 0.085);
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--background);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--font-sans);
+    color: var(--foreground);
+    background-color: var(--background);
+    background-image:
+      radial-gradient(1100px 720px at 8% -10%, rgba(66, 133, 244, 0.2), transparent 62%),
+      radial-gradient(920px 660px at 100% 0%, rgba(155, 114, 203, 0.18), transparent 58%),
+      radial-gradient(900px 620px at 76% 108%, rgba(36, 193, 224, 0.12), transparent 62%),
+      linear-gradient(165deg, #0b0d13 0%, #0f121a 48%, #131620 100%);
+    background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: rgba(66, 133, 244, 0.32);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Frosted surface: depth from blur and a hairline edge, never a heavy border. */
+  .glass {
+    background: color-mix(in srgb, #131620 58%, transparent);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 30px 80px -50px rgba(0, 0, 0, 0.85);
+  }
+
+  .gemini-text {
+    background: var(--gemini-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gemini-ring {
+    background: var(--gemini-gradient);
+  }
+
+  /* Soft light sweep on pressable surfaces. */
+  .tactile {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .tactile > * {
+    position: relative;
+    z-index: 2;
+  }
+  .tactile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.22) 48%, transparent 64%);
+    transform: translateX(-140%);
+    transition: transform 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
+    pointer-events: none;
+  }
+  .tactile:hover::after {
+    transform: translateX(140%);
+  }
+
+  .aurora-blob {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(90px);
+    opacity: 0.5;
+    will-change: transform;
+    animation: aurora-drift 26s ease-in-out infinite alternate;
+  }
+  .aurora-blob.one {
+    background: radial-gradient(circle at 30% 30%, rgba(66, 133, 244, 0.55), transparent 68%);
+  }
+  .aurora-blob.two {
+    background: radial-gradient(circle at 60% 40%, rgba(155, 114, 203, 0.5), transparent 66%);
+    animation-duration: 32s;
+    animation-delay: -6s;
+  }
+  .aurora-blob.three {
+    background: radial-gradient(circle at 40% 60%, rgba(36, 193, 224, 0.42), transparent 66%);
+    animation-duration: 38s;
+    animation-delay: -14s;
+  }
+  .aurora-blob.four {
+    background: radial-gradient(circle at 50% 50%, rgba(217, 101, 112, 0.34), transparent 66%);
+    animation-duration: 34s;
+    animation-delay: -20s;
+  }
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(3%, 4%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-2%, 6%, 0) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob {
+    animation: none;
+  }
+}

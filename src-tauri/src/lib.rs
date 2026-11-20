@@ -87,6 +87,7 @@ pub fn run() {
             commands::downloads_retry,
             commands::downloads_remove,
             commands::downloads_clear_finished,
+            commands::downloads_clear_all,
             commands::downloads_open_file,
             commands::downloads_open_folder,
             commands::history_list,
