@@ -4,12 +4,15 @@ A minimal desktop media downloader built with **Tauri 2**, React, TypeScript and
 
 ## Features
 
+- Two modes: one-click **Quick** downloads and **Advanced** format picking
+- Wide, minimal interface based on the NovaTube palette (Baby Blue Ice accent)
 - Video presets (best → 360p) in MP4/MKV/WEBM, audio in MP3/M4A/WAV/FLAC
-- Playlist picker with select all/none/invert and range selection
+- Playlist picker with select all/none/invert, range selection and virtualization
 - Live queue with speed, ETA, progress, pause/resume/cancel/retry
 - Optional compression presets, thumbnail embedding, subtitles and SponsorBlock
 - Persistent history and settings
 - Dark, light and system themes; window size and position are restored
+- Signed automatic updates, applied on launch between downloads
 
 ## Development
 

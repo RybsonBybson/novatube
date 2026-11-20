@@ -78,7 +78,7 @@ export function MediaPreview({ media, options, onChange, onDownload, onOpenPlayl
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ type: "spring", stiffness: 260, damping: 30 }}
-      className="rounded-[30px] bg-ink-850 p-5 sm:p-6"
+      className="rounded-[22px] border border-fog/[0.08] p-5"
     >
       <MediaHeader media={media} />
 
@@ -98,7 +98,7 @@ export function MediaPreview({ media, options, onChange, onDownload, onOpenPlayl
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[10.5px] text-mute/70">
-              <Gauge className="size-3.5 text-saffron-ink/70" />
+              <Gauge className="size-3.5 text-sky-ink/70" />
               {optionsSummary(options)}
             </div>
             <Button size="md" onClick={onDownload} loading={adding} className="min-w-[168px]">

@@ -5,12 +5,12 @@ import { cn } from "../../lib/utils";
 import { Spinner } from "../icons/Animated";
 
 export const buttonVariants = cva(
-  "relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold tracking-[-0.01em] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-saffron/45 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40",
+  "relative inline-flex shrink-0 select-none items-center justify-center gap-2 whitespace-nowrap rounded-full font-semibold tracking-[-0.01em] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-sky/45 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40",
   {
     variants: {
       variant: {
         primary:
-          "nova-gradient text-on-accent shadow-[0_18px_46px_-22px_rgba(240,188,0,0.9)] hover:brightness-[1.07]",
+          "bg-sky text-on-sky shadow-[0_18px_46px_-24px_rgba(158,189,255,0.9)] hover:bg-sky/90",
         secondary: "bg-fog/[0.07] text-mist/90 hover:bg-fog/[0.12] hover:text-mist",
         soft: "bg-fog/[0.05] text-mist/80 hover:bg-fog/[0.09] hover:text-mist",
         ghost: "text-mute hover:bg-fog/[0.06] hover:text-mist",
@@ -62,7 +62,7 @@ interface IconButtonProps {
 
 const TONES: Record<Tone, string> = {
   default: "text-mute hover:bg-fog/[0.07] hover:text-mist",
-  accent: "text-mute hover:bg-saffron/15 hover:text-saffron-ink",
+  accent: "text-mute hover:bg-sky/15 hover:text-sky-ink",
   sky: "text-mute hover:bg-sky/15 hover:text-sky-ink",
   danger: "text-mute hover:bg-danger/15 hover:text-danger",
 };
@@ -76,7 +76,7 @@ export function IconButton({ children, label, onClick, tone = "default", classNa
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "grid size-8 shrink-0 place-items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/45 active:scale-[0.9] disabled:pointer-events-none disabled:opacity-40",
+        "grid size-8 shrink-0 place-items-center rounded-full outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky/45 active:scale-[0.9] disabled:pointer-events-none disabled:opacity-40",
         TONES[tone],
         className,
       )}
@@ -103,8 +103,8 @@ export function Chip({ children, active = false, disabled = false, onClick, titl
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-saffron/45 active:scale-[0.96]",
-        active ? "bg-saffron text-on-accent shadow-[0_10px_30px_-14px_rgba(240,188,0,0.9)]" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.085] hover:text-mist/85",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-sky/45 active:scale-[0.96]",
+        active ? "bg-sky text-on-sky" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.085] hover:text-mist/85",
         disabled && "pointer-events-none opacity-25",
         className,
       )}

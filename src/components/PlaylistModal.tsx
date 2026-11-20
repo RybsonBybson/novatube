@@ -117,7 +117,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search playlist"
-              className="h-9 w-full rounded-full bg-fog/[0.05] pl-9 pr-3 text-[11.5px] text-mist/85 outline-none placeholder:text-mute/50 focus:bg-fog/[0.08] focus:ring-1 focus:ring-saffron/35"
+              className="h-9 w-full rounded-full bg-fog/[0.05] pl-9 pr-3 text-[11.5px] text-mist/85 outline-none placeholder:text-mute/50 focus:bg-fog/[0.08] focus:ring-1 focus:ring-sky/45"
             />
           </div>
           <div className="flex items-center gap-0.5">
@@ -151,7 +151,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
               placeholder="1-10, 15"
               className={cn(
                 "h-9 w-[96px] rounded-full bg-fog/[0.05] px-3 text-[11px] text-mist/85 outline-none placeholder:text-mute/50 focus:bg-fog/[0.08]",
-                rangeError ? "ring-1 ring-danger/60" : "focus:ring-1 focus:ring-saffron/35",
+                rangeError ? "ring-1 ring-danger/60" : "focus:ring-1 focus:ring-sky/45",
               )}
               title="Select a range, e.g. 1-10, 15, 20-25"
             />
@@ -330,7 +330,7 @@ const PlaylistRow = memo(function PlaylistRow({
         }
       }}
       className={cn(
-        "flex h-full w-full cursor-pointer items-center gap-3 rounded-2xl px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/40",
+        "flex h-full w-full cursor-pointer items-center gap-3 rounded-2xl px-3 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky/40",
         checked ? "bg-fog/[0.05]" : "hover:bg-fog/[0.03]",
       )}
     >

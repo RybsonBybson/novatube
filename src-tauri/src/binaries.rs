@@ -72,18 +72,18 @@ impl Binaries {
 
         let _ = tokio::fs::create_dir_all(&self.dir).await;
 
-        let ffmpeg = self.resolve_ffmpeg().await;
+        // Startup must stay silent and cheap: locate the bundled ffmpeg by path
+        // only. Running `ffmpeg -version` here would spawn a second process (and
+        // on Windows can flash a console) before the window is even visible.
+        let ffmpeg = self.locate_ffmpeg();
         self.mutate(|status| {
             status.ffmpeg = BinaryInfo {
                 name: "ffmpeg".into(),
                 path: ffmpeg
                     .as_ref()
-                    .map(|info| info.0.clone())
+                    .map(|path| path.to_string_lossy().to_string())
                     .unwrap_or_default(),
-                version: ffmpeg
-                    .as_ref()
-                    .map(|info| info.1.clone())
-                    .unwrap_or_default(),
+                version: if ffmpeg.is_some() { "bundled".into() } else { String::new() },
                 state: if ffmpeg.is_some() { "ready" } else { "error" }.into(),
                 progress: if ffmpeg.is_some() { 100 } else { 0 },
                 message: if ffmpeg.is_some() {
@@ -94,12 +94,13 @@ impl Binaries {
             };
         });
 
-        if let Some((path, version)) = self.resolve_ytdlp().await {
+        // Same for yt-dlp: presence is enough at startup, no `--version` probe.
+        if let Some(path) = self.locate_ytdlp() {
             self.mutate(|status| {
                 status.yt_dlp = BinaryInfo {
                     name: "yt-dlp".into(),
-                    path,
-                    version,
+                    path: path.to_string_lossy().to_string(),
+                    version: String::new(),
                     state: "ready".into(),
                     progress: 100,
                     message: None,
@@ -243,7 +244,7 @@ impl Binaries {
         candidates
     }
 
-    async fn resolve_ytdlp(&self) -> Option<(String, String)> {
+    fn ytdlp_candidates(&self) -> Vec<PathBuf> {
         let name = if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" };
         let mut candidates = Vec::new();
         if let Ok(value) = std::env::var("YTDLP_PATH") {
@@ -254,8 +255,39 @@ impl Binaries {
         if let Some(path) = find_on_path(if cfg!(windows) { "yt-dlp.exe" } else { "yt-dlp" }) {
             candidates.push(path);
         }
+        candidates
+    }
 
-        for candidate in candidates {
+    fn ffmpeg_candidates(&self) -> Vec<PathBuf> {
+        let name = if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" };
+        let mut candidates = Vec::new();
+        if let Ok(value) = std::env::var("FFMPEG_PATH") {
+            candidates.push(PathBuf::from(value));
+        }
+        candidates.push(self.bin_dir().join(name));
+        candidates.extend(self.resource_candidates(name));
+        if let Some(path) = find_on_path(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" }) {
+            candidates.push(path);
+        }
+        candidates
+    }
+
+    /// Path-only lookup — never executes the binary.
+    fn locate_ytdlp(&self) -> Option<PathBuf> {
+        self.ytdlp_candidates()
+            .into_iter()
+            .find(|candidate| candidate.is_file())
+    }
+
+    /// Path-only lookup — never executes the binary.
+    fn locate_ffmpeg(&self) -> Option<PathBuf> {
+        self.ffmpeg_candidates()
+            .into_iter()
+            .find(|candidate| candidate.is_file())
+    }
+
+    async fn resolve_ytdlp(&self) -> Option<(String, String)> {
+        for candidate in self.ytdlp_candidates() {
             if !candidate.is_file() {
                 continue;
             }
@@ -267,15 +299,7 @@ impl Binaries {
     }
 
     async fn resolve_ffmpeg(&self) -> Option<(String, String)> {
-        let name = if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" };
-        let mut candidates = Vec::new();
-        if let Ok(value) = std::env::var("FFMPEG_PATH") {
-            candidates.push(PathBuf::from(value));
-        }
-        candidates.push(self.bin_dir().join(name));
-        candidates.extend(self.resource_candidates(name));
-
-        for candidate in candidates {
+        for candidate in self.ffmpeg_candidates() {
             if !candidate.is_file() {
                 continue;
             }
@@ -287,18 +311,6 @@ impl Binaries {
                     .unwrap_or(&version)
                     .to_string();
                 return Some((candidate.to_string_lossy().to_string(), clean));
-            }
-        }
-
-        if let Some(path) = find_on_path(if cfg!(windows) { "ffmpeg.exe" } else { "ffmpeg" }) {
-            if let Some(version) = version_of(&path, "-version").await {
-                let clean = version
-                    .trim_start_matches("ffmpeg version ")
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or(&version)
-                    .to_string();
-                return Some((path.to_string_lossy().to_string(), clean));
             }
         }
         None
@@ -422,13 +434,13 @@ fn find_on_path(name: &str) -> Option<PathBuf> {
 }
 
 async fn version_of(binary: &Path, flag: &str) -> Option<String> {
-    let output = tokio::time::timeout(
-        Duration::from_secs(15),
-        tokio::process::Command::new(binary).arg(flag).output(),
-    )
-    .await
-    .ok()?
-    .ok()?;
+    let mut command = tokio::process::Command::new(binary);
+    command.arg(flag).stdin(std::process::Stdio::null());
+    crate::util::hide_console(&mut command);
+    let output = tokio::time::timeout(Duration::from_secs(15), command.output())
+        .await
+        .ok()?
+        .ok()?;
 
     let text = format!(
         "{}\n{}",

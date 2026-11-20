@@ -80,11 +80,16 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
         url,
     ];
 
-    let output = tokio::time::timeout(
-        Duration::from_secs(180),
-        tokio::process::Command::new(binary).args(args).output(),
-    )
-    .await
+    let mut command = tokio::process::Command::new(binary);
+    command
+        .args(args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    crate::util::hide_console(&mut command);
+
+    let output = tokio::time::timeout(Duration::from_secs(180), command.output())
+        .await
     .map_err(|_| "Metadata request timed out. Check your connection and try again.".to_string())?
     .map_err(|error| format!("Could not start yt-dlp: {error}"))?;
 

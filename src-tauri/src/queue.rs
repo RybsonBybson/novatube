@@ -547,11 +547,7 @@ impl DownloadQueue {
                 .stdin(Stdio::null())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
-
-            #[cfg(windows)]
-            {
-                command.creation_flags(0x0800_0000);
-            }
+            crate::util::hide_console(&mut command);
 
             let mut child = command
                 .spawn()
@@ -775,10 +771,7 @@ impl DownloadQueue {
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
-        #[cfg(windows)]
-        {
-            command.creation_flags(0x0800_0000);
-        }
+        crate::util::hide_console(&mut command);
 
         let mut child = command
             .spawn()

@@ -31,13 +31,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
       return (
         <div className="grid h-screen w-screen place-items-center bg-ink-950 p-8 text-center">
           <div className="surface max-w-md rounded-[28px] p-8">
-            <div className="nova-gradient mx-auto grid size-12 place-items-center rounded-[16px] text-lg text-on-accent">✦</div>
+            <div className="mx-auto grid size-12 place-items-center rounded-[16px] bg-sky text-lg text-on-sky">✦</div>
             <h1 className="mt-5 font-display text-xl font-bold text-mist">Something went off-orbit</h1>
             <p className="mt-2 text-[12px] leading-relaxed text-mute">{this.state.error.message}</p>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="nova-gradient mt-5 rounded-full px-5 py-2 text-[12px] font-semibold text-on-accent"
+              className="mt-5 rounded-full bg-sky px-5 py-2 text-[12px] font-semibold text-on-sky"
             >
               Restart interface
             </button>

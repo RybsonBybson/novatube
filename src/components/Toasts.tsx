@@ -29,7 +29,7 @@ export function useToast(): ToastContextValue {
 }
 
 const TOAST_STYLE: Record<ToastType, { icon: typeof Info; tile: string; iconClass: string }> = {
-  success: { icon: CheckCircle2, tile: "bg-saffron/10", iconClass: "text-saffron-ink" },
+  success: { icon: CheckCircle2, tile: "bg-sky/10", iconClass: "text-sky-ink" },
   error: { icon: AlertCircle, tile: "bg-danger/10", iconClass: "text-danger" },
   info: { icon: Info, tile: "bg-sky/10", iconClass: "text-sky-ink" },
 };

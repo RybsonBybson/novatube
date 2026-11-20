@@ -4,7 +4,6 @@ import { Downloader } from "./components/Downloader";
 import { ContextMenu, isEditableTarget, type ContextMenuState } from "./components/ContextMenu";
 import { HistoryView } from "./components/HistoryView";
 import { SettingsView } from "./components/SettingsView";
-import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { useToast } from "./components/Toasts";
 import { useAppInfo, useBinaries, useHistory, useSettings } from "./hooks/useBackend";
@@ -12,6 +11,7 @@ import { useDownloads } from "./hooks/useDownloads";
 import { useTheme } from "./hooks/useTheme";
 import { useUpdater } from "./hooks/useUpdater";
 import { api } from "./lib/api";
+import { truncateMiddle } from "./lib/utils";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 const VIEWS: ViewId[] = ["downloader", "history", "settings"];
@@ -186,59 +186,60 @@ export default function App() {
   return (
     <TooltipProvider delayDuration={400}>
       <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
-        <TitleBar />
+        <TitleBar view={view} onChange={changeView} activeCount={activeCount} version={appInfo?.version} />
 
-        <div className="flex min-h-0 flex-1">
-          <Sidebar
-            view={view}
-            onChange={changeView}
-            activeCount={activeCount}
-            binaries={binaries}
-            onOpenSettings={() => changeView("settings")}
-          />
+        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col px-8 lg:px-10">
+            <div className="flex-1">
+              <div className={view === "downloader" ? "min-h-full" : "hidden"} aria-hidden={view !== "downloader"}>
+                <Downloader
+                  active={view === "downloader"}
+                  downloads={downloads}
+                  settings={settings}
+                  binaries={binaries}
+                  onOpenSettings={() => changeView("settings")}
+                  onOpenHistory={() => changeView("history")}
+                />
+              </div>
 
-          <main ref={mainRef} className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
-            <div className={view === "downloader" ? "min-h-full" : "hidden"} aria-hidden={view !== "downloader"}>
-              <Downloader
-                active={view === "downloader"}
-                downloads={downloads}
-                settings={settings}
-                binaries={binaries}
-                onOpenSettings={() => changeView("settings")}
-                onOpenHistory={() => changeView("history")}
-              />
+              <div className={view === "history" ? "min-h-full" : "hidden"} aria-hidden={view !== "history"}>
+                <HistoryView
+                  entries={history.entries}
+                  loaded={history.loaded}
+                  onAdd={downloads.add}
+                  onRemove={history.remove}
+                  onClear={history.clear}
+                />
+              </div>
+
+              <div className={view === "settings" ? "min-h-full" : "hidden"} aria-hidden={view !== "settings"}>
+                <SettingsView
+                  settings={settings}
+                  settingsError={settingsError}
+                  onUpdate={updateSettings}
+                  binaries={binaries}
+                  onUpdateYtDlp={updateYtDlp}
+                  onRefreshBinaries={refreshBinaries}
+                  appInfo={appInfo}
+                  updateAvailable={updateAvailable}
+                  updateChecking={updateChecking}
+                  updateInstalling={updateInstalling}
+                  updateProgress={updateProgress}
+                  updateError={updateError}
+                  onCheckUpdates={checkUpdates}
+                  onInstallUpdate={installUpdate}
+                />
+              </div>
             </div>
 
-            <div className={view === "history" ? "min-h-full" : "hidden"} aria-hidden={view !== "history"}>
-              <HistoryView
-                entries={history.entries}
-                loaded={history.loaded}
-                onAdd={downloads.add}
-                onRemove={history.remove}
-                onClear={history.clear}
-              />
-            </div>
-
-            <div className={view === "settings" ? "min-h-full" : "hidden"} aria-hidden={view !== "settings"}>
-              <SettingsView
-                settings={settings}
-                settingsError={settingsError}
-                onUpdate={updateSettings}
-                binaries={binaries}
-                onUpdateYtDlp={updateYtDlp}
-                onRefreshBinaries={refreshBinaries}
-                appInfo={appInfo}
-                updateAvailable={updateAvailable}
-                updateChecking={updateChecking}
-                updateInstalling={updateInstalling}
-                updateProgress={updateProgress}
-                updateError={updateError}
-                onCheckUpdates={checkUpdates}
-                onInstallUpdate={installUpdate}
-              />
-            </div>
-          </main>
-        </div>
+            <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-fog/[0.07] py-4 text-[10px] text-mute/50">
+              <span className="truncate">
+                Saves to {settings?.downloadDir ? truncateMiddle(settings.downloadDir, 62) : "your downloads folder"}
+              </span>
+              <span className="shrink-0">yt-dlp + ffmpeg · local only</span>
+            </footer>
+          </div>
+        </main>
 
         <ContextMenu state={contextMenu} onClose={() => setContextMenu(null)} />
       </div>

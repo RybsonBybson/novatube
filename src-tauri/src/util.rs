@@ -75,14 +75,39 @@ pub fn eta_from_seconds(seconds: f64) -> Option<String> {
     }
 }
 
+/// Windows: spawn without a console window. Every child process (yt-dlp,
+/// ffmpeg, taskkill) must use this, otherwise a console flashes on screen for
+/// a fraction of a second even in a GUI build.
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// Apply the hidden-console flag to a tokio child process command.
+pub fn hide_console(command: &mut tokio::process::Command) {
+    #[cfg(windows)]
+    {
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
+/// Apply the hidden-console flag to a blocking child process command.
+pub fn hide_console_std(command: &mut std::process::Command) {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+}
+
 pub fn kill_pid(pid: u32) {
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("taskkill")
+        let mut command = std::process::Command::new("taskkill");
+        command
             .args(["/PID", &pid.to_string(), "/T", "/F"])
             .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status();
+            .stderr(std::process::Stdio::null());
+        hide_console_std(&mut command);
+        let _ = command.status();
     }
     #[cfg(not(windows))]
     {

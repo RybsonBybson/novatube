@@ -71,7 +71,7 @@ export function AdvancedOptions({ options, onChange, media, className }: Advance
                     >
                       {option.id === "best" ? "Best" : option.short}
                       {highFps ? (
-                        <span className={cn("text-[8.5px]", options.quality === option.id ? "text-on-accent/60" : "text-mute/50")}>60</span>
+                        <span className={cn("text-[8.5px]", options.quality === option.id ? "text-on-sky/60" : "text-mute/50")}>60</span>
                       ) : null}
                     </Chip>
                   );
@@ -102,7 +102,7 @@ export function AdvancedOptions({ options, onChange, media, className }: Advance
                       title={preset.description}
                       onClick={() => onChange({ compression: preset.id })}
                       className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-saffron/45",
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky/45",
                         active ? "bg-orange/20 text-orange-ink" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.08] hover:text-mist/85",
                       )}
                     >

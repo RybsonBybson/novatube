@@ -34,11 +34,11 @@ interface DownloadCardProps {
 
 const STATUS: Record<DownloadStatus, { label: string; icon: typeof Clock3; text: string; bar: string }> = {
   queued: { label: "Queued", icon: Clock3, text: "text-mute/60", bar: "bg-fog/20" },
-  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-saffron-ink", bar: "bg-gradient-to-r from-saffron to-orange" },
-  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-saffron-ink", bar: "bg-gradient-to-r from-saffron to-orange" },
-  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-gradient-to-r from-mauve to-pink" },
-  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-gradient-to-r from-mauve to-pink" },
-  completed: { label: "Done", icon: CheckCircle2, text: "text-saffron-ink/80", bar: "bg-saffron/60" },
+  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-sky" },
+  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-sky" },
+  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-mauve" },
+  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-mauve" },
+  completed: { label: "Done", icon: CheckCircle2, text: "text-sky-ink/80", bar: "bg-sky/40" },
   paused: { label: "Paused", icon: Pause, text: "text-orange-ink", bar: "bg-orange/60" },
   cancelled: { label: "Cancelled", icon: Ban, text: "text-mute/50", bar: "bg-fog/15" },
   error: { label: "Failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
@@ -68,14 +68,14 @@ export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -14 }}
       transition={{ type: "spring", stiffness: 320, damping: 32 }}
-      className="group relative rounded-[22px] bg-ink-850 px-4 py-3.5 transition-colors hover:bg-ink-800"
+      className="group relative border-b border-fog/[0.06] px-1 py-3 transition-colors hover:bg-fog/[0.015]"
     >
       <div className="flex items-start gap-3.5">
-        <div className="relative shrink-0 overflow-hidden rounded-xl bg-ink-900">
+        <div className="relative shrink-0 overflow-hidden rounded-[9px] bg-ink-900">
           {item.thumbnail ? (
-            <img src={item.thumbnail} alt="" draggable={false} className="h-[54px] w-[96px] object-cover" />
+            <img src={item.thumbnail} alt="" draggable={false} className="h-[46px] w-[82px] object-cover" />
           ) : (
-            <div className="grid h-[54px] w-[96px] place-items-center">
+            <div className="grid h-[46px] w-[82px] place-items-center">
               <StatusIcon className="size-4 text-mute/30" />
             </div>
           )}
@@ -222,7 +222,7 @@ function CardAction({
       className={cn(
         "grid size-7 place-items-center rounded-full text-mute/70 transition-colors hover:bg-fog/[0.06] hover:text-mist",
         tone === "danger" && "hover:bg-danger/12 hover:text-danger",
-        tone === "accent" && "hover:bg-saffron/12 hover:text-saffron-ink",
+        tone === "accent" && "hover:bg-sky/12 hover:text-sky-ink",
       )}
     >
       {children}
@@ -232,14 +232,14 @@ function CardAction({
 
 export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-[22px] bg-ink-850 px-6 py-12 text-center">
-      <div className="grid size-11 place-items-center rounded-full bg-fog/[0.04]">
-        <ArrowDownToLine className="size-4 text-mute/50" />
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center py-14 text-center">
+      <div className="grid size-10 place-items-center rounded-full border border-fog/[0.08]">
+        <ArrowDownToLine className="size-4 text-mute/45" />
       </div>
-      <p className="mt-3 text-[12px] font-medium text-mute">Queue is empty</p>
-      <p className="mt-1 max-w-xs text-[10.5px] leading-relaxed text-mute/50">Paste a link above to start. Downloads keep running while you browse.</p>
+      <p className="mt-3 text-[11.5px] font-medium text-mute/70">Nothing downloading</p>
+      <p className="mt-1 max-w-xs text-[10px] leading-relaxed text-mute/40">Paste a link above. Downloads keep running while you browse.</p>
       {onBrowse ? (
-        <button type="button" onClick={onBrowse} className="mt-3 text-[10.5px] font-medium text-saffron-ink/80 hover:text-saffron-ink">
+        <button type="button" onClick={onBrowse} className="mt-3 text-[10px] font-medium text-sky-ink/80 hover:text-sky-ink">
           Open library
         </button>
       ) : null}
@@ -249,7 +249,7 @@ export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
 
 export function MetadataSkeleton() {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="surface overflow-hidden rounded-[32px] p-4 sm:p-6">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="overflow-hidden rounded-[20px] border border-fog/[0.08] p-4">
       <div className="flex gap-5">
         <div className="shimmer-track aspect-video w-[260px] shrink-0 rounded-[22px] bg-fog/[0.04]" />
         <div className="flex-1 space-y-3 py-2">
@@ -257,7 +257,7 @@ export function MetadataSkeleton() {
           <div className="h-5 w-4/5 rounded-full bg-fog/[0.07]" />
           <div className="h-5 w-3/5 rounded-full bg-fog/[0.05]" />
           <div className="flex items-center gap-2 pt-2 text-[10.5px] text-mute/60">
-            <Spinner className="size-3.5 text-saffron-ink" />
+            <Spinner className="size-3.5 text-sky-ink" />
             Reading metadata…
           </div>
         </div>

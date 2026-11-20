@@ -10,7 +10,7 @@ export function Input({ className, icon, ...props }: InputProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-2xl bg-fog/[0.05] px-3.5 transition-colors duration-200 focus-within:bg-fog/[0.08] focus-within:ring-1 focus-within:ring-saffron/35",
+        "flex items-center gap-2 rounded-2xl bg-fog/[0.05] px-3.5 transition-colors duration-200 focus-within:bg-fog/[0.08] focus-within:ring-1 focus-within:ring-sky/45",
         className,
       )}
     >

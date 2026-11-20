@@ -10,7 +10,7 @@ export function SelectTrigger({ className, children, ...props }: ComponentProps<
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "inline-flex h-9 items-center justify-between gap-2 rounded-xl bg-fog/[0.06] px-3 text-[11.5px] font-medium text-mist/85 outline-none transition-colors hover:bg-fog/[0.1] focus-visible:ring-2 focus-visible:ring-saffron/45 data-[placeholder]:text-mute/60 disabled:pointer-events-none disabled:opacity-50",
+        "inline-flex h-9 items-center justify-between gap-2 rounded-xl bg-fog/[0.06] px-3 text-[11.5px] font-medium text-mist/85 outline-none transition-colors hover:bg-fog/[0.1] focus-visible:ring-2 focus-visible:ring-sky/45 data-[placeholder]:text-mute/60 disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       {...props}
@@ -46,7 +46,7 @@ export function SelectItem({ className, children, ...props }: ComponentProps<typ
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex w-full cursor-pointer select-none items-center gap-2 rounded-xl py-1.5 pl-2.5 pr-8 text-[11.5px] font-medium text-mist/80 outline-none transition-colors data-[highlighted]:bg-fog/[0.08] data-[highlighted]:text-mist data-[state=checked]:text-saffron-ink",
+        "relative flex w-full cursor-pointer select-none items-center gap-2 rounded-xl py-1.5 pl-2.5 pr-8 text-[11.5px] font-medium text-mist/80 outline-none transition-colors data-[highlighted]:bg-fog/[0.08] data-[highlighted]:text-mist data-[state=checked]:text-sky-ink",
         className,
       )}
       {...props}

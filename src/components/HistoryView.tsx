@@ -117,16 +117,16 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
 
   return (
     <div className="relative min-h-full">
-      <div className="relative mx-auto w-full max-w-[1020px] px-8 pb-24 pt-14 lg:px-10">
+      <div className="relative pb-12 pt-10">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-ink/80">Collection</p>
-          <h1 className="mt-4 font-display text-[36px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Library</h1>
-          <p className="mt-3 text-[11.5px] text-mute/55">
+          <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">Collection</p>
+          <h1 className="mt-3 font-display text-[40px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Library</h1>
+          <p className="mt-2 text-[10.5px] text-mute/45">
             {pluralize(entries.length, "item")} · {videoCount} video · {audioCount} audio · {formatBytes(totalSize)}
           </p>
         </div>
 
-        <div className="mt-9 flex flex-wrap items-center gap-2">
+        <div className="mt-8 flex flex-wrap items-center gap-2">
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
@@ -167,7 +167,7 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           ) : null}
         </div>
 
-        <div className="mt-5 space-y-1">
+        <div className="mt-5 border-t border-fog/[0.07]">
           <AnimatePresence initial={false}>
             {visible.map((entry) => (
               <HistoryRow key={entry.id} entry={entry} onOpenFile={openFile} onOpenFolder={openFolder} onRedownload={redownload} onRemove={removeEntry} />
@@ -189,7 +189,7 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
 
           {!loaded ? (
             <div className="flex items-center justify-center gap-2 py-14 text-[11px] text-mute/40">
-              <Spinner className="size-3.5 text-saffron-ink" />
+              <Spinner className="size-3.5 text-sky-ink" />
               Loading library
             </div>
           ) : null}
@@ -235,14 +235,13 @@ function HistoryRow({
   const isAudio = entry.options.kind === "audio";
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={{ type: "spring", stiffness: 340, damping: 32 }}
-      className="group flex items-center gap-3 rounded-[18px] px-2 py-2 transition-colors duration-200 hover:bg-ink-850"
+      className="group flex items-center gap-3 border-b border-fog/[0.06] px-2 py-3 transition-colors duration-200 hover:bg-fog/[0.015]"
     >
-      <div className="relative h-[50px] w-[88px] shrink-0 overflow-hidden rounded-xl bg-ink-850">
+      <div className="relative h-[46px] w-[82px] shrink-0 overflow-hidden rounded-[9px] bg-ink-850">
         {entry.thumbnail ? (
           <img src={entry.thumbnail} alt="" draggable={false} loading="lazy" className="size-full object-cover" />
         ) : (

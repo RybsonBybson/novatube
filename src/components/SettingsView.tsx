@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { Check, DownloadCloud, FolderDown, FolderOpen, RefreshCw } from "lucide-react";
+import { ChevronDown, DownloadCloud, FolderDown, FolderOpen, RefreshCw } from "lucide-react";
+import { useState } from "react";
 import type { AppInfo, AppSettings, BinariesStatus, DownloadOptions } from "@shared/types";
 import { api } from "../lib/api";
 import type { UpdateInfo } from "../lib/updater";
@@ -57,6 +58,7 @@ export function SettingsView({
   onInstallUpdate,
 }: SettingsViewProps) {
   const toast = useToast();
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const save = async (patch: Partial<AppSettings>, successMessage?: string) => {
     try {
@@ -99,7 +101,7 @@ export function SettingsView({
       toast.push({
         type: next.ytDlp.state === "ready" ? "success" : "error",
         title: next.ytDlp.state === "ready" ? "Engines ready" : "yt-dlp missing",
-        message: next.ytDlp.state === "ready" ? `yt-dlp ${next.ytDlp.version}` : next.ytDlp.message ?? "Update yt-dlp to install it.",
+        message: next.ytDlp.state === "ready" ? `yt-dlp ${next.ytDlp.version || "ready"}` : next.ytDlp.message ?? "Update yt-dlp to install it.",
       });
     } catch (error) {
       toast.push({ type: "error", title: "Engine check failed", message: error instanceof Error ? error.message : String(error) });
@@ -110,31 +112,25 @@ export function SettingsView({
   const preset: DownloadOptions | null = settings ? optionsFromSettings(settings) : null;
 
   return (
-    <div className="relative min-h-full">
-      <div className="relative mx-auto w-full max-w-[1020px] px-8 pb-24 pt-14 lg:px-10">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-sky-ink/80">Preferences</p>
-        <h1 className="mt-4 font-display text-[36px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Settings</h1>
-        <p className="mt-3 text-[11.5px] text-mute/55">Quick mode downloads use these instantly — no extra choices.</p>
+    <div className="relative min-h-full pb-12 pt-10">
+      <header>
+        <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">Preferences</p>
+        <h1 className="mt-3 font-display text-[40px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Settings</h1>
+        <p className="mt-2 max-w-md text-[11px] leading-relaxed text-mute/50">Quick downloads use these instantly — no extra choices.</p>
+      </header>
 
-        {settingsError ? <div className="mt-6 rounded-2xl bg-danger/[0.08] px-4 py-3 text-[11px] text-danger/80">{settingsError}</div> : null}
+      {settingsError ? <div className="mt-6 rounded-[14px] border border-danger/20 px-4 py-3 text-[10.5px] text-danger/80">{settingsError}</div> : null}
 
-        {!settings ? (
-          <div className="mt-12 flex items-center justify-center gap-2 text-[11px] text-mute/40">
-            <Spinner className="size-4 text-saffron-ink" />
-            Loading settings
-          </div>
-        ) : (
-          <div className="mt-9 grid items-start gap-2.5 lg:grid-cols-2">
-            <Panel delay={0} className="lg:col-span-2">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <SectionTitle title="Quick download preset" subtitle="Applied the moment you paste a link" accent />
-                {preset ? (
-                  <span className="rounded-full bg-saffron/12 px-3 py-1 text-[10.5px] font-semibold text-saffron-ink">{optionsSummary(preset)}</span>
-                ) : null}
-              </div>
-
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <Label>Mode</Label>
+      {!settings ? (
+        <div className="mt-12 flex items-center gap-2 text-[11px] text-mute/40">
+          <Spinner className="size-4 text-sky-ink" />
+          Loading settings
+        </div>
+      ) : (
+        <>
+          <div className="mt-10 grid items-start gap-x-16 gap-y-10 lg:grid-cols-2">
+            <Section title="Quick download" hint="Applied the moment you paste a link">
+              <Row label="Mode">
                 <Segmented
                   layoutId="default-kind"
                   size="sm"
@@ -145,22 +141,20 @@ export function SettingsView({
                   ]}
                   onChange={(defaultKind) => void save({ defaultKind })}
                 />
-              </div>
+              </Row>
 
               {settings.defaultKind === "video" ? (
-                <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <Label>Resolution</Label>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                <>
+                  <Row label="Resolution">
+                    <div className="flex flex-wrap justify-end gap-1">
                       {QUALITY_OPTIONS.map((option) => (
                         <Chip key={option.id} active={settings.defaultQuality === option.id} onClick={() => void save({ defaultQuality: option.id })}>
                           {option.short}
                         </Chip>
                       ))}
                     </div>
-                  </div>
-
-                  <Field label="Container">
+                  </Row>
+                  <Row label="Container">
                     <Segmented
                       layoutId="default-container"
                       size="sm"
@@ -168,31 +162,12 @@ export function SettingsView({
                       options={CONTAINERS}
                       onChange={(defaultContainer) => void save({ defaultContainer })}
                     />
-                  </Field>
-
-                  <Field label="Compression">
-                    <Select
-                      value={settings.defaultCompression}
-                      onValueChange={(value) => void save({ defaultCompression: value as AppSettings["defaultCompression"] })}
-                    >
-                      <SelectTrigger aria-label="Compression preset">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COMPRESSION_OPTIONS.map((option) => (
-                          <SelectItem key={option.id} value={option.id}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
+                  </Row>
+                </>
               ) : (
-                <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <Label>Audio format</Label>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                <>
+                  <Row label="Audio format">
+                    <div className="flex flex-wrap justify-end gap-1">
                       {AUDIO_FORMATS.map((format) => (
                         <Chip
                           key={format.id}
@@ -203,10 +178,9 @@ export function SettingsView({
                         </Chip>
                       ))}
                     </div>
-                  </div>
-                  <div className={cn("sm:col-span-2", settings.defaultAudioFormat !== "mp3" && "pointer-events-none opacity-35")}>
-                    <Label>MP3 bitrate</Label>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
+                  </Row>
+                  <Row label="MP3 bitrate">
+                    <div className={cn("flex flex-wrap justify-end gap-1", settings.defaultAudioFormat !== "mp3" && "pointer-events-none opacity-35")}>
                       {AUDIO_QUALITIES.map((quality) => (
                         <Chip
                           key={quality.id}
@@ -217,72 +191,45 @@ export function SettingsView({
                         </Chip>
                       ))}
                     </div>
-                  </div>
-                </div>
+                  </Row>
+                </>
               )}
 
-              <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4 border-t border-fog/[0.06] pt-6">
-                <SettingRow title="Embed cover art" hint="Add the thumbnail as art">
-                  <Switch checked={settings.embedThumbnail} onCheckedChange={(embedThumbnail) => void save({ embedThumbnail })} aria-label="Embed cover art" />
-                </SettingRow>
-                <SettingRow title="SponsorBlock" hint="Cut sponsor segments">
-                  <Switch checked={settings.sponsorBlock} onCheckedChange={(sponsorBlock) => void save({ sponsorBlock })} aria-label="SponsorBlock" />
-                </SettingRow>
-                <SettingRow title="Subtitles" hint="Download and embed">
-                  <Segmented layoutId="default-subs" size="sm" value={settings.subtitles} options={SUBTITLE_MODES} onChange={(subtitles) => void save({ subtitles })} />
-                </SettingRow>
-              </div>
-            </Panel>
+              {preset ? <p className="pt-3 text-[10px] text-mute/40">Currently: {optionsSummary(preset)}</p> : null}
+            </Section>
 
-            <Panel delay={0.04}>
-              <SectionTitle title="Downloads" subtitle="Save location and parallelism" />
-
-              <div className="mt-6">
+            <Section title="Downloads" hint="Save location and parallelism">
+              <div className="border-b border-fog/[0.05] py-3">
                 <Label>Save to</Label>
                 <div className="mt-2 flex items-center gap-2">
-                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl bg-fog/[0.05] px-3.5 py-2.5 transition-colors focus-within:bg-fog/[0.08] focus-within:ring-1 focus-within:ring-saffron/35">
-                    <FolderDown className="size-3.5 shrink-0 text-mute/60" />
-                    <span className="truncate text-[10.5px] text-mist/70" title={settings.downloadDir}>
-                      {truncateMiddle(settings.downloadDir, 44)}
+                  <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-fog/[0.04] px-3 py-2">
+                    <FolderDown className="size-3.5 shrink-0 text-mute/55" />
+                    <span className="truncate text-[10px] text-mist/65" title={settings.downloadDir}>
+                      {truncateMiddle(settings.downloadDir, 46)}
                     </span>
                   </div>
                   <Button size="sm" variant="soft" onClick={() => void pickFolder()}>
                     Change
                   </Button>
-                  <IconButton label="Open downloads folder" tone="accent" onClick={() => void openFolder()}>
-                    <FolderOpen className="size-4" />
+                  <IconButton label="Open downloads folder" tone="sky" onClick={() => void openFolder()}>
+                    <FolderOpen className="size-3.5" />
                   </IconButton>
                 </div>
               </div>
 
-              <div className="mt-7">
+              <div className="py-3">
                 <div className="flex items-center justify-between">
                   <Label>Simultaneous downloads</Label>
-                  <span className="font-mono text-[11px] tabular-nums text-saffron-ink">{settings.concurrency}</span>
+                  <span className="font-mono text-[10.5px] tabular-nums text-sky-ink">{settings.concurrency}</span>
                 </div>
                 <div className="mt-3">
                   <Slider value={settings.concurrency} min={1} max={5} label="Simultaneous downloads" onChange={(value) => void save({ concurrency: value })} />
-                  <div className="mt-2 flex justify-between px-0.5 text-[9px] text-mute/35">
-                    {[1, 2, 3, 4, 5].map((value) => (
-                      <span key={value} className={cn("tabular-nums", settings.concurrency === value && "text-mist/60")}>
-                        {value}
-                      </span>
-                    ))}
-                  </div>
                 </div>
               </div>
+            </Section>
 
-              <div className="mt-7 flex items-center justify-between gap-3">
-                <SettingLabel title="Auto-update yt-dlp" hint="Check for a new engine on launch" />
-                <Switch checked={settings.autoUpdateYtDlp} onCheckedChange={(autoUpdateYtDlp) => void save({ autoUpdateYtDlp })} aria-label="Auto-update yt-dlp" />
-              </div>
-            </Panel>
-
-            <Panel delay={0.06}>
-              <SectionTitle title="Appearance" subtitle="Theme and startup" />
-
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <Label>Theme</Label>
+            <Section title="Appearance" hint="Theme and startup">
+              <Row label="Theme">
                 <Segmented
                   layoutId="theme-mode"
                   size="sm"
@@ -294,195 +241,181 @@ export function SettingsView({
                   ]}
                   onChange={(theme) => void save({ theme })}
                 />
-              </div>
-
-              <div className="mt-6 flex items-center justify-between gap-3">
-                <SettingLabel title="Reopen last view" hint="Start where you left off" />
+              </Row>
+              <Row label="Reopen last view">
                 <Switch checked={settings.rememberView} onCheckedChange={(rememberView) => void save({ rememberView })} aria-label="Reopen last view" />
-              </div>
+              </Row>
+            </Section>
 
-              <p className="mt-6 text-[10px] leading-relaxed text-mute/40">Window size, position and maximized state are restored automatically.</p>
-
-              <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-[9.5px] text-mute/35">
-                <span>Ctrl 1/2/3 · Views</span>
-                <span>Ctrl L · Search</span>
-                <span>Ctrl O · Folder</span>
-              </div>
-            </Panel>
-
-            <Panel delay={0.08} className="lg:col-span-2">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <SectionTitle title="App updates" subtitle="Signed updates straight from GitHub Releases" />
-                <span
-                  className={cn(
-                    "rounded-full px-3 py-1 text-[10.5px] font-semibold",
-                    updateAvailable ? "bg-saffron/15 text-saffron-ink" : "bg-fog/[0.05] text-mute/70",
-                  )}
-                >
+            <Section
+              title="App updates"
+              hint="Signed builds straight from GitHub Releases"
+              action={
+                <span className={cn("text-[9.5px] font-medium", updateAvailable ? "text-sky-ink" : "text-mute/40")}>
                   {updateInstalling
                     ? `Updating${updateProgress !== null ? ` · ${updateProgress}%` : ""}`
                     : updateAvailable
                       ? `v${updateAvailable.version} available`
-                      : `Up to date · v${appInfo?.version ?? "—"}`}
+                      : `v${appInfo?.version ?? "1.0.0"} · up to date`}
                 </span>
-              </div>
-
-              <div className="mt-5 flex flex-wrap items-center gap-2">
+              }
+            >
+              <div className="flex flex-wrap items-center gap-2 py-3">
                 <Button size="sm" variant="soft" onClick={() => void onCheckUpdates()} loading={updateChecking} disabled={updateInstalling}>
-                  <RefreshCw className="size-3.5" />
+                  <RefreshCw className="size-3" />
                   Check now
                 </Button>
                 <Button size="sm" onClick={() => void onInstallUpdate()} loading={updateInstalling} disabled={!updateAvailable}>
-                  <DownloadCloud className="size-3.5" />
-                  Install update
+                  <DownloadCloud className="size-3" />
+                  Install
                 </Button>
                 <div className="ml-auto flex items-center gap-2">
-                  <span className="text-[11px] text-mist/80">Install automatically</span>
-                  <Switch
-                    checked={settings.autoUpdate}
-                    onCheckedChange={(autoUpdate) => void save({ autoUpdate })}
-                    aria-label="Install updates automatically"
-                  />
+                  <span className="text-[10px] text-mist/70">Automatic</span>
+                  <Switch checked={settings.autoUpdate} onCheckedChange={(autoUpdate) => void save({ autoUpdate })} aria-label="Install updates automatically" />
                 </div>
               </div>
 
               {updateInstalling && updateProgress !== null ? (
-                <div className="mt-4 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
-                  <motion.div
-                    className="h-full rounded-full bg-gradient-to-r from-saffron to-orange"
-                    animate={{ width: `${updateProgress}%` }}
-                    transition={{ type: "spring", stiffness: 120, damping: 24 }}
-                  />
+                <div className="mb-3 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
+                  <motion.div className="h-full rounded-full bg-sky" animate={{ width: `${updateProgress}%` }} transition={{ type: "spring", stiffness: 120, damping: 24 }} />
                 </div>
               ) : null}
-
-              {updateError ? <p className="mt-3 text-[10.5px] text-danger/80">{updateError}</p> : null}
-
-              <p className="mt-4 text-[10px] text-mute/40">
-                Updates are verified with the app signing key and never interrupt a download in progress.
-              </p>
-            </Panel>
-
-            <Panel delay={0.1} className="lg:col-span-2">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <SectionTitle title="Engines" subtitle="yt-dlp fetches, ffmpeg merges" />
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}>
-                    <RefreshCw className="size-3.5" />
-                    Re-check
-                  </Button>
-                  <Button size="sm" variant="soft" onClick={() => void updateYtDlp()} loading={busy}>
-                    <DownloadCloud className="size-3.5" />
-                    Update yt-dlp
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-6 grid gap-1.5 sm:grid-cols-2">
-                <BinaryCard name="yt-dlp" state={binaries?.ytDlp.state ?? "checking"} version={binaries?.ytDlp.version} path={binaries?.ytDlp.path} progress={binaries?.ytDlp.progress ?? 0} message={binaries?.ytDlp.message} />
-                <BinaryCard name="ffmpeg" state={binaries?.ffmpeg.state ?? "checking"} version={binaries?.ffmpeg.version} path={binaries?.ffmpeg.path} progress={binaries?.ffmpeg.progress ?? 0} message={binaries?.ffmpeg.message} />
-              </div>
-
-              <p className="mt-6 flex items-center gap-2 text-[10px] text-mute/40">
-                <Check className="size-3 text-sky-ink/70" />
-                NovaTube {appInfo?.version ?? "1.0.0"} · Tauri {appInfo?.tauri ?? "—"} · no telemetry
-              </p>
-            </Panel>
+              {updateError ? <p className="pb-3 text-[10px] text-danger/80">{updateError}</p> : null}
+            </Section>
           </div>
-        )}
+
+          <div className="mt-12 border-t border-fog/[0.07] pt-4">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((value) => !value)}
+              className="flex items-center gap-2 text-[10px] font-medium text-mute/55 outline-none transition-colors hover:text-mist/85"
+              aria-expanded={showAdvanced}
+            >
+              <ChevronDown className={cn("size-3.5 transition-transform", showAdvanced && "rotate-180")} />
+              Advanced options
+            </button>
+
+            {showAdvanced ? (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-7 grid items-start gap-x-16 gap-y-10 lg:grid-cols-2">
+                <Section title="Extras" hint="Fine-tuning for every download">
+                  <Row label="Compression">
+                    <Select
+                      value={settings.defaultCompression}
+                      onValueChange={(value) => void save({ defaultCompression: value as AppSettings["defaultCompression"] })}
+                    >
+                      <SelectTrigger aria-label="Compression preset" className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMPRESSION_OPTIONS.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Row>
+                  <Row label="Embed cover art">
+                    <Switch checked={settings.embedThumbnail} onCheckedChange={(embedThumbnail) => void save({ embedThumbnail })} aria-label="Embed cover art" />
+                  </Row>
+                  <Row label="SponsorBlock">
+                    <Switch checked={settings.sponsorBlock} onCheckedChange={(sponsorBlock) => void save({ sponsorBlock })} aria-label="SponsorBlock" />
+                  </Row>
+                  <Row label="Subtitles">
+                    <Segmented layoutId="default-subs" size="sm" value={settings.subtitles} options={SUBTITLE_MODES} onChange={(subtitles) => void save({ subtitles })} />
+                  </Row>
+                </Section>
+
+                <Section
+                  title="Engines"
+                  hint="yt-dlp fetches, ffmpeg merges"
+                  action={
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}>
+                        <RefreshCw className="size-3" />
+                        Check
+                      </Button>
+                      <Button size="sm" variant="soft" onClick={() => void updateYtDlp()} loading={busy}>
+                        <DownloadCloud className="size-3" />
+                        Update
+                      </Button>
+                    </div>
+                  }
+                >
+                  <BinaryRow name="yt-dlp" state={binaries?.ytDlp.state ?? "checking"} version={binaries?.ytDlp.version} message={binaries?.ytDlp.message} />
+                  <BinaryRow name="ffmpeg" state={binaries?.ffmpeg.state ?? "checking"} version={binaries?.ffmpeg.version} message={binaries?.ffmpeg.message} />
+                  <Row label="Auto-update yt-dlp">
+                    <Switch checked={settings.autoUpdateYtDlp} onCheckedChange={(autoUpdateYtDlp) => void save({ autoUpdateYtDlp })} aria-label="Auto-update yt-dlp" />
+                  </Row>
+                  <p className="pt-3 text-[9.5px] text-mute/35">
+                    NovaTube {appInfo?.version ?? "1.0.0"} · Tauri {appInfo?.tauri ?? "—"} · no telemetry
+                  </p>
+                </Section>
+              </motion.div>
+            ) : null}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function Section({
+  title,
+  hint,
+  action,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2 className="text-[9.5px] font-semibold uppercase tracking-[0.2em] text-mute/60">{title}</h2>
+          {hint ? <p className="mt-1 text-[10px] text-mute/35">{hint}</p> : null}
+        </div>
+        {action}
       </div>
-    </div>
+      <div className="mt-2">{children}</div>
+    </section>
   );
 }
 
-function Panel({ children, delay = 0, className }: { children: React.ReactNode; delay?: number; className?: string }) {
+function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }} className={cn("rounded-[26px] bg-ink-850 p-6", className)}>
-      {children}
-    </motion.section>
-  );
-}
-
-function SectionTitle({ title, subtitle, accent = false }: { title: string; subtitle: string; accent?: boolean }) {
-  return (
-    <div>
-      <h2 className={cn("font-display text-[13px] font-semibold tracking-[-0.01em]", accent ? "text-mist" : "text-mist/90")}>{title}</h2>
-      <p className="mt-0.5 text-[10px] text-mute/45">{subtitle}</p>
-    </div>
-  );
-}
-
-function SettingLabel({ title, hint }: { title: string; hint: string }) {
-  return (
-    <div>
-      <p className="text-[11.5px] font-medium text-mist/85">{title}</p>
-      <p className="mt-0.5 text-[10px] text-mute/45">{hint}</p>
-    </div>
-  );
-}
-
-function SettingRow({ title, hint, children }: { title: string; hint: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <SettingLabel title={title} hint={hint} />
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-fog/[0.05] py-3 last:border-0">
+      <p className="text-[10.5px] font-medium text-mist/75">{label}</p>
       {children}
     </div>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <Label>{label}</Label>
-      {children}
-    </div>
-  );
-}
-
-function BinaryCard({
+function BinaryRow({
   name,
   state,
   version,
-  path,
-  progress,
   message,
 }: {
   name: string;
   state: BinariesStatus["ytDlp"]["state"];
   version?: string;
-  path?: string;
-  progress: number;
   message?: string;
 }) {
   const ready = state === "ready";
   const busy = state === "downloading" || state === "updating" || state === "checking";
   return (
-    <div className="rounded-2xl bg-fog/[0.035] px-4 py-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          {busy ? (
-            <Spinner className="size-3.5 text-saffron-ink" />
-          ) : (
-            <span className={cn("size-[6px] rounded-full", ready ? "bg-saffron" : "bg-warn")} />
-          )}
-          <span className="font-mono text-[11px] font-medium text-mist/75">{name}</span>
-        </div>
-        <span className={cn("text-[9px] uppercase tracking-[0.12em]", ready ? "text-saffron-ink/80" : "text-warn/80")}>
-          {busy && state === "checking" ? "checking" : state}
-        </span>
+    <div className="flex items-center justify-between gap-3 border-b border-fog/[0.05] py-3">
+      <div className="flex items-center gap-2">
+        {busy ? <Spinner className="size-3 text-sky-ink" /> : <span className={cn("size-1.5 rounded-full", ready ? "bg-sky" : "bg-warn")} />}
+        <span className="font-mono text-[10.5px] text-mist/70">{name}</span>
       </div>
-      <p className="mt-2 truncate font-mono text-[9.5px] text-mute/45" title={version ?? path ?? ""}>
-        {version ?? message ?? "Not installed"}
-      </p>
-      {busy && state !== "checking" ? (
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
-          <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-saffron to-orange"
-            animate={{ width: `${progress}%` }}
-            transition={{ type: "spring", stiffness: 100, damping: 22 }}
-          />
-        </div>
-      ) : null}
+      <span className={cn("truncate text-[9.5px]", ready ? "text-mute/45" : "text-warn/75")}>
+        {ready ? version || "ready" : message ?? (busy ? "checking" : state)}
+      </span>
     </div>
   );
 }
