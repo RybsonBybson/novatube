@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -62,21 +63,93 @@ pub struct DownloadQueue {
     binaries: Arc<Binaries>,
     inner: Mutex<QueueInner>,
     emit_times: Mutex<HashMap<String, Instant>>,
+    /// Set by any mutation; the periodic flusher writes the queue snapshot.
+    dirty: AtomicBool,
+    /// Once the window is closing, no new jobs may start.
+    shutting_down: AtomicBool,
 }
 
 impl DownloadQueue {
     pub fn new(app: AppHandle, store: Arc<AppStore>, binaries: Arc<Binaries>) -> Self {
+        let mut items = HashMap::new();
+        let mut order = Vec::new();
+
+        // Restore the previous session. Anything that was actively running is
+        // put back into the queue with its progress intact; pauses and
+        // cancellations are user intent and stay as they were.
+        for mut item in store.load_queue() {
+            item.speed = None;
+            item.speed_bytes = None;
+            item.eta = None;
+            match item.status.as_str() {
+                "fetching" | "downloading" | "processing" => {
+                    item.status = "queued".into();
+                    item.resume_stage = None;
+                    item.stage_detail = Some("Resuming after restart…".into());
+                }
+                "compressing" => {
+                    item.status = "queued".into();
+                    item.resume_stage = Some("compress".into());
+                    item.stage_detail = Some("Resuming compression…".into());
+                }
+                "queued" => {
+                    item.resume_stage = None;
+                    item.stage_detail = Some("Waiting to resume…".into());
+                }
+                _ => {}
+            }
+            if items.contains_key(&item.id) {
+                continue;
+            }
+            order.push(item.id.clone());
+            items.insert(item.id.clone(), item);
+        }
+
         Self {
             app,
             store,
             binaries,
             inner: Mutex::new(QueueInner {
-                items: HashMap::new(),
-                order: Vec::new(),
+                items,
+                order,
                 runs: HashMap::new(),
             }),
             emit_times: Mutex::new(HashMap::new()),
+            dirty: AtomicBool::new(false),
+            shutting_down: AtomicBool::new(false),
         }
+    }
+
+    pub fn has_pending(&self) -> bool {
+        let inner = self.lock();
+        inner.order.iter().any(|id| {
+            inner
+                .items
+                .get(id)
+                .map(|item| item.status == "queued")
+                .unwrap_or(false)
+        })
+    }
+
+    pub fn persist_if_dirty(&self) {
+        if self.dirty.swap(false, Ordering::SeqCst) {
+            self.store.save_queue(&self.list());
+        }
+    }
+
+    pub fn persist_now(&self) {
+        self.dirty.store(false, Ordering::SeqCst);
+        self.store.save_queue(&self.list());
+    }
+
+    /// Called once the renderer is ready: restored jobs continue where the
+    /// previous session left off instead of waiting for a manual click.
+    pub fn auto_resume(self: &Arc<Self>) {
+        self.schedule();
+    }
+
+    fn mark_dirty(&self) {
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     pub fn list(&self) -> Vec<DownloadItem> {
@@ -103,6 +176,7 @@ impl DownloadQueue {
             inner.items.insert(item.id.clone(), item.clone());
             inner.order.push(item.id.clone());
         }
+        self.mark_dirty();
         self.emit_update(item.clone(), true);
         self.emit_snapshot();
         self.schedule();
@@ -133,6 +207,7 @@ impl DownloadQueue {
             }
         }
         // One snapshot instead of N individual events keeps huge batches cheap.
+        self.mark_dirty();
         self.emit_snapshot();
         self.schedule();
         Ok(created)
@@ -169,6 +244,7 @@ impl DownloadQueue {
             notice: None,
             playlist_title: input.playlist_title,
             stage_detail: None,
+            resume_stage: None,
             created_at: now_ms(),
             completed_at: None,
         }
@@ -229,6 +305,7 @@ impl DownloadQueue {
             item.speed = None;
             item.speed_bytes = None;
             item.eta = None;
+            item.resume_stage = None;
             item.stage_detail = Some("Cancelled".into());
         });
     }
@@ -252,6 +329,7 @@ impl DownloadQueue {
             item.file_size = None;
             item.completed_at = None;
             item.stage_detail = None;
+            item.resume_stage = None;
         });
         self.schedule();
     }
@@ -270,6 +348,7 @@ impl DownloadQueue {
         if let Some(pid) = pid {
             kill_pid(pid);
         }
+        self.mark_dirty();
         let _ = self.app.emit("downloads:removed", id);
         self.emit_snapshot();
     }
@@ -299,6 +378,7 @@ impl DownloadQueue {
         for id in removed {
             let _ = self.app.emit("downloads:removed", id);
         }
+        self.mark_dirty();
         self.emit_snapshot();
     }
 
@@ -306,7 +386,12 @@ impl DownloadQueue {
         self.schedule();
     }
 
-    pub fn shutdown(&self) {
+    /// Closing the window must not throw away in-flight work. Stop the child
+    /// processes, turn every active item back into a queued item and flush the
+    /// snapshot, so the next launch continues exactly where this one stopped.
+    pub fn prepare_shutdown(&self) {
+        self.shutting_down.store(true, Ordering::SeqCst);
+
         let pids: Vec<u32> = {
             let mut inner = self.lock();
             let mut pids = Vec::new();
@@ -321,9 +406,27 @@ impl DownloadQueue {
         for pid in pids {
             kill_pid(pid);
         }
+
+        {
+            let mut inner = self.lock();
+            for item in inner.items.values_mut() {
+                if ACTIVE_STATUSES.contains(&item.status.as_str()) {
+                    item.status = "queued".into();
+                    item.speed = None;
+                    item.speed_bytes = None;
+                    item.eta = None;
+                    item.stage_detail =
+                        Some("Paused — continues when you reopen NovaTube".into());
+                }
+            }
+        }
+        self.persist_now();
     }
 
     fn schedule(self: &Arc<Self>) {
+        if self.shutting_down.load(Ordering::SeqCst) {
+            return;
+        }
         let limit = self.store.settings().concurrency as usize;
         let mut started = Vec::new();
 
@@ -368,22 +471,35 @@ impl DownloadQueue {
             return;
         };
 
+        // A crash in the middle of compression leaves the downloaded media on
+        // disk. Resume straight into FFmpeg instead of fetching it again.
+        let resume_compression = item.resume_stage.as_deref() == Some("compress")
+            && item.options.kind == "video"
+            && item.options.compression != "none"
+            && item
+                .output_path
+                .as_deref()
+                .map(|path| Path::new(path).is_file())
+                .unwrap_or(false);
+
         self.update(&id, true, |item| {
             item.status = "fetching".into();
-            item.progress = 0.0;
-            item.stage_detail = Some("Preparing yt-dlp…".into());
+            if !resume_compression {
+                item.progress = 0.0;
+            }
+            item.stage_detail = Some(if resume_compression {
+                "Resuming compression…".into()
+            } else {
+                "Preparing the media engine…".into()
+            });
             item.speed = None;
+            item.speed_bytes = None;
             item.eta = None;
+            if !resume_compression {
+                item.resume_stage = None;
+            }
         });
 
-        let ytdlp = match self.binaries.ensure_ytdlp().await {
-            Ok(path) => path,
-            Err(error) => {
-                self.fail(&id, &error);
-                self.finish_run(&id);
-                return;
-            }
-        };
         let ffmpeg = self.binaries.ensure_ffmpeg().await.ok();
 
         if self.is_stopped(&id) {
@@ -399,53 +515,68 @@ impl DownloadQueue {
             return;
         }
 
-        let args = build_args(&item, &output_dir, ffmpeg.as_deref());
-        self.update(&id, true, |item| {
-            item.status = "downloading".into();
-            item.stage_detail = Some("Connecting to media server…".into());
-        });
-
-        let outcome = match self.spawn_download(&id, &ytdlp, &args).await {
-            Ok(outcome) => outcome,
-            Err(error) => {
-                if !self.is_stopped(&id) {
+        let mut final_path = if resume_compression {
+            item.output_path.clone().unwrap_or_default()
+        } else {
+            // Only the download stage needs the media engine.
+            let ytdlp = match self.binaries.ensure_ytdlp().await {
+                Ok(path) => path,
+                Err(error) => {
                     self.fail(&id, &error);
+                    self.finish_run(&id);
+                    return;
                 }
+            };
+
+            let args = build_args(&item, &output_dir, ffmpeg.as_deref());
+            self.update(&id, true, |item| {
+                item.status = "downloading".into();
+                item.stage_detail = Some("Connecting to the media server…".into());
+            });
+
+            let outcome = match self.spawn_download(&id, &ytdlp, &args).await {
+                Ok(outcome) => outcome,
+                Err(error) => {
+                    if !self.is_stopped(&id) {
+                        self.fail(&id, &error);
+                    }
+                    self.finish_run(&id);
+                    return;
+                }
+            };
+
+            if self.is_stopped(&id) {
                 self.finish_run(&id);
                 return;
             }
-        };
+            if outcome.code != Some(0) {
+                self.fail(&id, &friendly_error(&outcome.stderr));
+                self.finish_run(&id);
+                return;
+            }
 
-        if self.is_stopped(&id) {
-            self.finish_run(&id);
-            return;
-        }
-        if outcome.code != Some(0) {
-            self.fail(&id, &friendly_error(&outcome.stderr));
-            self.finish_run(&id);
-            return;
-        }
+            let candidate = outcome
+                .final_path
+                .or_else(|| self.run_final_path(&id))
+                .or_else(|| self.run_destination(&id))
+                .or_else(|| self.locate_output(&output_dir, &item));
 
-        let mut final_path = outcome
-            .final_path
-            .or_else(|| self.run_final_path(&id))
-            .or_else(|| self.run_destination(&id));
-
-        if final_path.is_none() {
-            final_path = self.locate_output(&output_dir, &item);
-        }
-        let Some(mut final_path) = final_path else {
-            self.fail(&id, "Download finished but the output file could not be located.");
-            self.finish_run(&id);
-            return;
+            match candidate {
+                Some(path) => path,
+                None => {
+                    self.fail(&id, "The download finished but no file could be found.");
+                    self.finish_run(&id);
+                    return;
+                }
+            }
         };
 
         let preset = item.options.compression.clone();
         if item.options.kind == "video" && preset != "none" {
             if ffmpeg.is_none() {
                 self.update(&id, true, |item| {
-                    item.notice =
-                        Some("Compression skipped because FFmpeg is unavailable.".into());
+                    item.notice = Some("Compression was skipped because it is unavailable.".into());
+                    item.resume_stage = None;
                 });
             } else if let Some(ffmpeg) = ffmpeg.as_deref() {
                 self.update(&id, true, |item| {
@@ -453,13 +584,23 @@ impl DownloadQueue {
                     item.progress = 0.0;
                     item.stage_detail = Some(compression_stage(&preset).into());
                     item.output_path = Some(final_path.clone());
+                    // Persisted immediately: if the app dies during FFmpeg,
+                    // the next launch continues with compression only.
+                    item.resume_stage = Some("compress".into());
                 });
 
                 match self
                     .compress(&id, Path::new(&final_path), item.duration, &preset, ffmpeg)
                     .await
                 {
-                    Ok(path) => final_path = path.to_string_lossy().to_string(),
+                    Ok(path) => {
+                        final_path = path.to_string_lossy().to_string();
+                        let done = final_path.clone();
+                        self.update(&id, true, |item| {
+                            item.resume_stage = None;
+                            item.output_path = Some(done);
+                        });
+                    }
                     Err(error) => {
                         if self.is_stopped(&id) {
                             self.finish_run(&id);
@@ -467,6 +608,7 @@ impl DownloadQueue {
                         }
                         self.update(&id, true, |item| {
                             item.notice = Some(format!("{error} The original file was kept."));
+                            item.resume_stage = None;
                         });
                     }
                 }
@@ -551,17 +693,17 @@ impl DownloadQueue {
 
             let mut child = command
                 .spawn()
-                .map_err(|error| format!("Could not start yt-dlp: {error}"))?;
+                .map_err(|error| format!("Could not start the media engine: {error}"))?;
             queue.set_pid(&id, child.id());
 
             let stdout = child
                 .stdout
                 .take()
-                .ok_or_else(|| "yt-dlp produced no output stream.".to_string())?;
+                .ok_or_else(|| "The media engine returned no output.".to_string())?;
             let stderr = child
                 .stderr
                 .take()
-                .ok_or_else(|| "yt-dlp produced no error stream.".to_string())?;
+                .ok_or_else(|| "The media engine returned no status stream.".to_string())?;
 
             let stderr_task = tauri::async_runtime::spawn(async move {
                 let mut text = String::new();
@@ -775,13 +917,13 @@ impl DownloadQueue {
 
         let mut child = command
             .spawn()
-            .map_err(|error| format!("Could not start ffmpeg: {error}"))?;
+            .map_err(|error| format!("Could not start the converter: {error}"))?;
         self.set_pid(id, child.id());
 
         let stderr = child
             .stderr
             .take()
-            .ok_or_else(|| "ffmpeg produced no error stream.".to_string())?;
+            .ok_or_else(|| "The converter returned no status stream.".to_string())?;
         let stderr_task = tauri::async_runtime::spawn(async move {
             let mut text = String::new();
             let mut lines = BufReader::new(stderr).lines();
@@ -834,16 +976,26 @@ impl DownloadQueue {
                 .lines()
                 .filter(|line| !line.trim().is_empty())
                 .last()
-                .unwrap_or("FFmpeg failed.");
+                .unwrap_or("The conversion failed.");
             return Err(format!(
                 "Compression failed: {}",
                 line.trim().chars().take(300).collect::<String>()
             ));
         }
 
-        std::fs::remove_file(input).map_err(|error| format!("Could not replace the original: {error}"))?;
-        std::fs::rename(&temp, input)
-            .map_err(|error| format!("Could not finalize the compressed file: {error}"))?;
+        // Windows has no atomic replace-on-rename, so the original is parked
+        // beside the output first. If the swap fails, it is put back and the
+        // download is never lost.
+        let backup = input.with_file_name(format!("{stem}.nova-original.tmp"));
+        let _ = std::fs::remove_file(&backup);
+        std::fs::rename(input, &backup)
+            .map_err(|error| format!("Could not replace the original: {error}"))?;
+        if let Err(error) = std::fs::rename(&temp, input) {
+            let _ = std::fs::rename(&backup, input);
+            let _ = std::fs::remove_file(&temp);
+            return Err(format!("Could not finalize the compressed file: {error}"));
+        }
+        let _ = std::fs::remove_file(&backup);
         self.update(id, false, |item| item.progress = 100.0);
         Ok(input.to_path_buf())
     }
@@ -932,6 +1084,9 @@ impl DownloadQueue {
             change(item);
             item.clone()
         };
+        // Progress ticks are persisted by the background flusher, so a crash
+        // resumes from the last snapshot instead of starting over.
+        self.mark_dirty();
 
         let should_emit = {
             let now = Instant::now();

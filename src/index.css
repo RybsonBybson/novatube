@@ -3,8 +3,8 @@
 /*
  * Theme tokens are plain CSS variables so the whole UI can switch between
  * dark and light at runtime. `@theme inline` maps them into Tailwind colors.
- * Accents come from the NovaTube palette: Saffron, Princeton Orange,
- * Bubblegum Pink, Mauve Magic and Baby Blue Ice.
+ * Accents follow the Gemini palette — blue #4285f4, purple #9b72cb,
+ * coral #d96570 and cyan #24c1e0 — laid over a deep midnight mesh.
  * A shadcn-compatible token layer (background, card, popover, primary, …)
  * sits on top so the Radix primitives in `components/ui` share one skin.
  */
@@ -38,6 +38,11 @@
   --color-danger: var(--danger);
   --color-warn: var(--warn);
 
+  --color-gemini-blue: var(--gemini-blue);
+  --color-gemini-purple: var(--gemini-purple);
+  --color-gemini-coral: var(--gemini-coral);
+  --color-gemini-cyan: var(--gemini-cyan);
+
   /* shadcn token bridge */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -68,40 +73,45 @@
 :root {
   color-scheme: dark;
 
-  --ink-950: #0a0a0c;
-  --ink-900: #0f0f13;
-  --ink-850: #16161b;
-  --ink-800: #1d1d24;
-  --ink-750: #27272f;
-  --ink-700: #343440;
+  --ink-950: #0b0d13;
+  --ink-900: #0e1119;
+  --ink-850: #131620;
+  --ink-800: #191d29;
+  --ink-750: #232839;
+  --ink-700: #2f364a;
 
-  /* NovaTube palette */
-  --saffron: #f0bc00;
-  --saffron-ink: #f0bc00;
-  --orange: #ff8b1f;
-  --orange-ink: #ff8b1f;
-  --pink: #ff476f;
-  --pink-ink: #ff476f;
-  --mauve: #d175ff;
-  --mauve-ink: #d175ff;
-  --sky: #9ebdff;
-  --sky-ink: #9ebdff;
-  --on-sky: #0b0c0e;
+  /* Gemini palette */
+  --gemini-blue: #4285f4;
+  --gemini-purple: #9b72cb;
+  --gemini-coral: #d96570;
+  --gemini-cyan: #24c1e0;
 
-  --mist: #f5f4f0;
-  --mute: #8c8c98;
+  --saffron: #24c1e0;
+  --saffron-ink: #6fe3fb;
+  --orange: #24c1e0;
+  --orange-ink: #6fe3fb;
+  --pink: #d96570;
+  --pink-ink: #f0a0a8;
+  --mauve: #9b72cb;
+  --mauve-ink: #c9aeea;
+  --sky: #4285f4;
+  --sky-ink: #8ab4f8;
+  --on-sky: #ffffff;
+
+  --mist: #f3f4f8;
+  --mute: #8b93a7;
 
   --fog: #ffffff;
-  --on-accent: #1c1500;
-  --danger: #ff476f;
-  --warn: #ff8b1f;
+  --on-accent: #08111f;
+  --danger: #e5676f;
+  --warn: #f2b45c;
 
   /* shadcn-compatible surfaces */
   --background: var(--ink-950);
   --foreground: var(--mist);
-  --card: var(--ink-850);
+  --card: color-mix(in srgb, var(--ink-850) 72%, transparent);
   --card-foreground: var(--mist);
-  --popover: #1b1b22;
+  --popover: #161a26;
   --popover-foreground: var(--mist);
   --primary: var(--sky);
   --primary-foreground: var(--on-sky);
@@ -115,49 +125,57 @@
   --destructive-foreground: #2a0510;
   --border: rgba(255, 255, 255, 0.09);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(158, 189, 255, 0.55);
+  --ring: rgba(66, 133, 244, 0.55);
 
   --scroll: rgba(255, 255, 255, 0.09);
   --scroll-hover: rgba(255, 255, 255, 0.18);
-  --selection: rgba(158, 189, 255, 0.28);
-  --focus-ring: rgba(158, 189, 255, 0.55);
+  --selection: rgba(66, 133, 244, 0.32);
+  --focus-ring: rgba(66, 133, 244, 0.55);
   --slider-track: rgba(255, 255, 255, 0.1);
-  --shimmer: rgba(10, 10, 12, 0.32);
+  --shimmer: rgba(255, 255, 255, 0.22);
+  --glass-tint: rgba(255, 255, 255, 0.035);
+  --glass-edge: rgba(255, 255, 255, 0.085);
+  --gemini-gradient: linear-gradient(96deg, #4285f4 0%, #9b72cb 38%, #d96570 72%, #24c1e0 100%);
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
 
-  --ink-950: #faf9f5;
-  --ink-900: #f1efe8;
+  --ink-950: #f5f7fc;
+  --ink-900: #eef1f8;
   --ink-850: #ffffff;
-  --ink-800: #f4f1ea;
-  --ink-750: #e9e5da;
-  --ink-700: #dad4c6;
+  --ink-800: #f1f4fa;
+  --ink-750: #e4e8f1;
+  --ink-700: #d2d8e5;
 
-  --saffron: #f0bc00;
-  --saffron-ink: #7d6100;
-  --orange: #ff8b1f;
-  --orange-ink: #a85200;
-  --pink: #ff476f;
-  --pink-ink: #c41f47;
-  --mauve: #c45bff;
-  --mauve-ink: #8614d4;
-  --sky: #7aa2ff;
-  --sky-ink: #2a55c4;
-  --on-sky: #0b0c0e;
+  --gemini-blue: #1a73e8;
+  --gemini-purple: #7c4dff;
+  --gemini-coral: #d96570;
+  --gemini-cyan: #0f9fb9;
 
-  --mist: #1a1a1f;
-  --mute: #6c6c78;
+  --saffron: #0f9fb9;
+  --saffron-ink: #0b7c91;
+  --orange: #0f9fb9;
+  --orange-ink: #0b7c91;
+  --pink: #d96570;
+  --pink-ink: #b3261e;
+  --mauve: #7c4dff;
+  --mauve-ink: #6532c9;
+  --sky: #1a73e8;
+  --sky-ink: #1a73e8;
+  --on-sky: #ffffff;
+
+  --mist: #171a21;
+  --mute: #5f6675;
 
   --fog: #000000;
-  --on-accent: #1c1500;
-  --danger: #c41f47;
-  --warn: #a85200;
+  --on-accent: #ffffff;
+  --danger: #c5221f;
+  --warn: #9a5b00;
 
   --background: var(--ink-950);
   --foreground: var(--mist);
-  --card: var(--ink-850);
+  --card: color-mix(in srgb, #ffffff 78%, transparent);
   --card-foreground: var(--mist);
   --popover: #ffffff;
   --popover-foreground: var(--mist);
@@ -171,16 +189,19 @@
   --accent-foreground: var(--mist);
   --destructive: var(--danger);
   --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --input: rgba(0, 0, 0, 0.08);
-  --ring: rgba(42, 85, 196, 0.45);
+  --border: rgba(15, 24, 46, 0.1);
+  --input: rgba(15, 24, 46, 0.08);
+  --ring: rgba(26, 115, 232, 0.45);
 
-  --scroll: rgba(0, 0, 0, 0.14);
-  --scroll-hover: rgba(0, 0, 0, 0.26);
-  --selection: rgba(122, 162, 255, 0.3);
-  --focus-ring: rgba(42, 85, 196, 0.45);
-  --slider-track: rgba(0, 0, 0, 0.11);
-  --shimmer: rgba(255, 255, 255, 0.5);
+  --scroll: rgba(15, 24, 46, 0.14);
+  --scroll-hover: rgba(15, 24, 46, 0.28);
+  --selection: rgba(26, 115, 232, 0.22);
+  --focus-ring: rgba(26, 115, 232, 0.45);
+  --slider-track: rgba(15, 24, 46, 0.12);
+  --shimmer: rgba(255, 255, 255, 0.62);
+  --glass-tint: rgba(255, 255, 255, 0.55);
+  --glass-edge: rgba(15, 24, 46, 0.08);
+  --gemini-gradient: linear-gradient(96deg, #1a73e8 0%, #7c4dff 38%, #d96570 72%, #0f9fb9 100%);
 }
 
 @keyframes shimmer {
@@ -189,6 +210,28 @@
   }
   100% {
     transform: translateX(210%);
+  }
+}
+
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(-4%, -2%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(3%, 4%, 0) scale(1.08);
+  }
+  100% {
+    transform: translate3d(-2%, 6%, 0) scale(0.98);
+  }
+}
+
+@keyframes nova-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(66, 133, 244, 0);
   }
 }
 
@@ -251,7 +294,13 @@
     margin: 0;
     font-family: var(--font-sans);
     color: var(--mist);
-    background: var(--ink-950);
+    background-color: var(--ink-950);
+    background-image:
+      radial-gradient(1100px 720px at 4% -12%, rgba(66, 133, 244, 0.16), transparent 62%),
+      radial-gradient(920px 660px at 100% 2%, rgba(155, 114, 203, 0.15), transparent 58%),
+      radial-gradient(900px 620px at 72% 112%, rgba(36, 193, 224, 0.1), transparent 62%),
+      linear-gradient(165deg, #0b0d13 0%, #0f121a 48%, #131620 100%);
+    background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     user-select: none;
@@ -259,6 +308,14 @@
     transition:
       background-color 0.22s ease,
       color 0.22s ease;
+  }
+
+  :root[data-theme="light"] body {
+    background-image:
+      radial-gradient(1000px 680px at 4% -12%, rgba(66, 133, 244, 0.11), transparent 62%),
+      radial-gradient(880px 620px at 100% 0%, rgba(155, 114, 203, 0.1), transparent 58%),
+      radial-gradient(760px 520px at 70% 115%, rgba(36, 193, 224, 0.08), transparent 62%),
+      linear-gradient(165deg, #f8f9fd 0%, #f2f5fb 52%, #eef2fa 100%);
   }
 
   input,
@@ -314,23 +371,110 @@
     font-family: var(--font-display);
   }
 
-  /* Borderless surfaces. Depth comes from tone and spacing, never hairlines. */
+  /* Frosted surfaces — depth comes from blur, tint and a hairline edge. */
   .surface {
-    background: var(--ink-850);
+    background: color-mix(in srgb, var(--ink-850) 64%, transparent);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(22px) saturate(135%);
+    -webkit-backdrop-filter: blur(22px) saturate(135%);
   }
 
   .surface-hi {
-    background: var(--ink-800);
+    background: color-mix(in srgb, var(--ink-800) 74%, transparent);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(30px) saturate(140%);
+    -webkit-backdrop-filter: blur(30px) saturate(140%);
   }
 
   .surface-soft {
-    background: color-mix(in srgb, var(--fog) 3.5%, transparent);
+    background: color-mix(in srgb, var(--fog) 4%, transparent);
   }
 
   .surface-blur {
-    background: color-mix(in srgb, var(--ink-950) 82%, transparent);
+    background: color-mix(in srgb, var(--ink-950) 68%, transparent);
     backdrop-filter: blur(26px) saturate(120%);
     -webkit-backdrop-filter: blur(26px) saturate(120%);
+  }
+
+  .glass {
+    background: color-mix(in srgb, var(--ink-850) 58%, transparent);
+    border: 1px solid var(--glass-edge);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--fog) 7%, transparent),
+      0 30px 80px -50px rgba(0, 0, 0, 0.85);
+  }
+
+  .gemini-text {
+    background: var(--gemini-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .gemini-ring {
+    background: var(--gemini-gradient);
+  }
+
+  /* A soft light sweep that makes pressable surfaces feel physical. */
+  .tactile {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+  .tactile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: linear-gradient(105deg, transparent 32%, rgba(255, 255, 255, 0.2) 48%, transparent 64%);
+    transform: translateX(-140%);
+    transition: transform 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
+    pointer-events: none;
+  }
+  /* Keep labels and icons above the sweep. */
+  .tactile > * {
+    position: relative;
+    z-index: 2;
+  }
+  .tactile:hover::after {
+    transform: translateX(140%);
+  }
+  .tactile:active::after {
+    transform: translateX(140%);
+    transition-duration: 0.25s;
+  }
+
+  .aurora-blob {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(90px);
+    opacity: 0.5;
+    will-change: transform;
+    animation: aurora-drift 26s ease-in-out infinite alternate;
+  }
+  .aurora-blob.one {
+    background: radial-gradient(circle at 30% 30%, rgba(66, 133, 244, 0.55), transparent 68%);
+  }
+  .aurora-blob.two {
+    background: radial-gradient(circle at 60% 40%, rgba(155, 114, 203, 0.5), transparent 66%);
+    animation-duration: 32s;
+    animation-delay: -6s;
+  }
+  .aurora-blob.three {
+    background: radial-gradient(circle at 40% 60%, rgba(36, 193, 224, 0.42), transparent 66%);
+    animation-duration: 38s;
+    animation-delay: -14s;
+  }
+  .aurora-blob.four {
+    background: radial-gradient(circle at 50% 50%, rgba(217, 101, 112, 0.34), transparent 66%);
+    animation-duration: 34s;
+    animation-delay: -20s;
+  }
+
+  :root[data-theme="light"] .aurora-blob {
+    opacity: 0.32;
   }
 
   .text-balance {

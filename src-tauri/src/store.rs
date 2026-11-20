@@ -1,6 +1,7 @@
 //! Tiny JSON store for settings, history and the last window rectangle.
 
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tauri::{AppHandle, Manager};
 
-use crate::models::{AppSettings, HistoryEntry};
+use crate::models::{AppSettings, DownloadItem, HistoryEntry};
 
 const HISTORY_LIMIT: usize = 500;
 
@@ -27,8 +28,8 @@ impl Default for WindowState {
         Self {
             x: None,
             y: None,
-            width: 1360,
-            height: 900,
+            width: 1180,
+            height: 780,
             maximized: false,
         }
     }
@@ -129,12 +130,40 @@ impl AppStore {
         self.window.lock().map(|value| value.clone()).unwrap_or_default()
     }
 
+    /// Queue contents are restored on launch so interrupted work can continue.
+    /// Unknown/corrupt entries are skipped instead of aborting the whole load.
+    pub fn load_queue(&self) -> Vec<DownloadItem> {
+        let path = self.dir.join("queue.json");
+        let text = match fs::read_to_string(path) {
+            Ok(text) => text,
+            Err(_) => return Vec::new(),
+        };
+        let Value::Array(items) = (match serde_json::from_str(&text) {
+            Ok(value) => value,
+            Err(_) => return Vec::new(),
+        }) else {
+            return Vec::new();
+        };
+        items
+            .into_iter()
+            .filter_map(|item| serde_json::from_value(item).ok())
+            .collect()
+    }
+
+    /// Atomic snapshot write: the temporary file is flushed before the rename,
+    /// so a crash can never leave a half-written queue on disk.
+    pub fn save_queue(&self, items: &[DownloadItem]) {
+        // Compact on purpose: a 1000-item playlist is rewritten every couple of
+        // seconds while downloads run.
+        write_json_compact(&self.dir.join("queue.json"), &items);
+    }
+
     pub fn save_window_state(&self, state: WindowState) {
         let clean = WindowState {
             x: state.x,
             y: state.y,
-            width: state.width.clamp(1040, 10000),
-            height: state.height.clamp(680, 10000),
+            width: state.width.clamp(900, 10000),
+            height: state.height.clamp(600, 10000),
             maximized: state.maximized,
         };
         write_json(&self.dir.join("window.json"), &clean);
@@ -173,15 +202,33 @@ fn read_history(path: &Path) -> Vec<HistoryEntry> {
 }
 
 fn write_json<T: Serialize>(path: &Path, value: &T) {
-    let Ok(contents) = serde_json::to_string_pretty(value) else {
+    write_bytes(path, serde_json::to_vec_pretty(value));
+}
+
+fn write_json_compact<T: Serialize>(path: &Path, value: &T) {
+    write_bytes(path, serde_json::to_vec(value));
+}
+
+fn write_bytes(path: &Path, contents: Result<Vec<u8>, serde_json::Error>) {
+    let Ok(contents) = contents else {
         return;
     };
-    let temp = path.with_extension("tmp");
-    if fs::write(&temp, contents).is_err() {
+    let temp = path.with_extension("json.tmp");
+    let Ok(mut file) = fs::File::create(&temp) else {
+        return;
+    };
+    if file.write_all(&contents).is_err() || file.sync_all().is_err() {
+        let _ = fs::remove_file(&temp);
         return;
     }
-    let _ = fs::remove_file(path);
-    let _ = fs::rename(temp, path);
+    drop(file);
+
+    // std::fs::rename maps to MoveFileExW(MOVEFILE_REPLACE_EXISTING) on
+    // Windows, so this swap is atomic even when the destination exists.
+    if fs::rename(&temp, path).is_err() {
+        let _ = fs::remove_file(path);
+        let _ = fs::rename(&temp, path);
+    }
 }
 
 fn normalize(settings: &mut AppSettings) {

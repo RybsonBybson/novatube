@@ -157,7 +157,7 @@ pub fn friendly_error(raw: &str) -> String {
     } else if joined.contains("permission denied") || joined.contains("os error 5") {
         "Permission denied. Choose a different download folder."
     } else if joined.contains("http error 403") {
-        "Access denied by the server. Try updating yt-dlp."
+        "Access denied by the server. Try refreshing the media engine."
     } else if joined.contains("http error 429") {
         "YouTube is rate-limiting requests. Wait a minute and retry."
     } else if joined.contains("unable to download webpage")
@@ -171,9 +171,9 @@ pub fn friendly_error(raw: &str) -> String {
     } else if joined.contains("requested format is not available") || joined.contains("no video formats found") {
         "The requested format is not available for this video."
     } else if joined.contains("unsupported url") {
-        "That link is not supported by yt-dlp."
+        "That link is not supported."
     } else if joined.contains("ffmpeg") && joined.contains("not found") {
-        "FFmpeg is missing. Restart the app so it can be provisioned."
+        "The media converter is missing. Restart NovaTube to restore it."
     } else if joined.contains("cancelled") || joined.contains("interrupted by user") {
         "Download cancelled."
     } else {

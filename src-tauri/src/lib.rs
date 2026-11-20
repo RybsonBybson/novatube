@@ -48,9 +48,22 @@ pub fn run() {
 
             restore_window(&handle, &store);
 
+            let resume = Arc::clone(&queue);
             tauri::async_runtime::spawn(async move {
                 if binaries.init().await.is_ok() {
                     binaries.maybe_auto_update().await;
+                }
+                // Pick up where the last session stopped.
+                resume.auto_resume();
+            });
+
+            // Progress snapshots are written while downloads run, not only at
+            // exit, so a crash resumes from the last few seconds of work.
+            let flusher = Arc::clone(&queue);
+            tauri::async_runtime::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                    flusher.persist_if_dirty();
                 }
             });
 
@@ -58,6 +71,8 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
+                let state = window.app_handle().state::<AppState>();
+                state.queue.prepare_shutdown();
                 save_window(window);
             }
         })
@@ -99,8 +114,8 @@ fn restore_window(app: &tauri::AppHandle, store: &AppStore) {
     };
 
     let state = store.window_state();
-    let width = state.width.clamp(1040, 10000);
-    let height = state.height.clamp(680, 10000);
+    let width = state.width.clamp(900, 10000);
+    let height = state.height.clamp(600, 10000);
     let _ = window.set_size(PhysicalSize::new(width, height));
 
     if let (Some(x), Some(y)) = (state.x, state.y) {

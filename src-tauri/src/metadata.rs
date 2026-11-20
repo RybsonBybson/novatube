@@ -91,14 +91,14 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
     let output = tokio::time::timeout(Duration::from_secs(180), command.output())
         .await
     .map_err(|_| "Metadata request timed out. Check your connection and try again.".to_string())?
-    .map_err(|error| format!("Could not start yt-dlp: {error}"))?;
+    .map_err(|error| format!("Could not start the media engine: {error}"))?;
 
     if !output.status.success() {
         return Err(crate::util::friendly_error(&String::from_utf8_lossy(&output.stderr)));
     }
 
     let info: RawInfo = serde_json::from_slice(&output.stdout)
-        .map_err(|_| "yt-dlp returned no readable metadata.".to_string())?;
+        .map_err(|_| "The link returned no readable details.".to_string())?;
 
     let is_playlist = info.kind.as_deref() == Some("playlist")
         || (info

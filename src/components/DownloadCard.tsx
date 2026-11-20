@@ -34,11 +34,11 @@ interface DownloadCardProps {
 
 const STATUS: Record<DownloadStatus, { label: string; icon: typeof Clock3; text: string; bar: string }> = {
   queued: { label: "Queued", icon: Clock3, text: "text-mute/60", bar: "bg-fog/20" },
-  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-sky" },
-  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-sky" },
-  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-mauve" },
-  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-mauve" },
-  completed: { label: "Done", icon: CheckCircle2, text: "text-sky-ink/80", bar: "bg-sky/40" },
+  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
+  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
+  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
+  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
+  completed: { label: "Done", icon: CheckCircle2, text: "text-sky-ink/80", bar: "bg-[linear-gradient(90deg,rgba(66,133,244,0.45),rgba(36,193,224,0.45))]" },
   paused: { label: "Paused", icon: Pause, text: "text-orange-ink", bar: "bg-orange/60" },
   cancelled: { label: "Cancelled", icon: Ban, text: "text-mute/50", bar: "bg-fog/15" },
   error: { label: "Failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
@@ -249,7 +249,7 @@ export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
 
 export function MetadataSkeleton() {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="overflow-hidden rounded-[20px] border border-fog/[0.08] p-4">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="glass overflow-hidden rounded-[20px] p-4">
       <div className="flex gap-5">
         <div className="shimmer-track aspect-video w-[260px] shrink-0 rounded-[22px] bg-fog/[0.04]" />
         <div className="flex-1 space-y-3 py-2">

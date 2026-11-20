@@ -176,7 +176,7 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           {hasMore ? <div ref={sentinelRef} className="h-8" aria-hidden /> : null}
 
           {!filtered.length && loaded ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center rounded-[24px] bg-ink-850/50 px-6 py-16 text-center">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass flex flex-col items-center justify-center rounded-[24px] px-6 py-16 text-center">
               <div className="grid size-12 place-items-center rounded-2xl bg-fog/[0.04]">
                 <Film className="size-5 text-mute/30" strokeWidth={1.6} />
               </div>

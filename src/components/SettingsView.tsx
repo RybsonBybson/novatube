@@ -89,7 +89,7 @@ export function SettingsView({
   const updateYtDlp = async () => {
     try {
       await onUpdateYtDlp();
-      toast.push({ type: "success", title: "yt-dlp updated", message: "The engine is current." });
+      toast.push({ type: "success", title: "Media engine updated", message: "You're running the latest version." });
     } catch (error) {
       toast.push({ type: "error", title: "Update failed", message: error instanceof Error ? error.message : String(error) });
     }
@@ -100,11 +100,11 @@ export function SettingsView({
       const next = await onRefreshBinaries();
       toast.push({
         type: next.ytDlp.state === "ready" ? "success" : "error",
-        title: next.ytDlp.state === "ready" ? "Engines ready" : "yt-dlp missing",
-        message: next.ytDlp.state === "ready" ? `yt-dlp ${next.ytDlp.version || "ready"}` : next.ytDlp.message ?? "Update yt-dlp to install it.",
+        title: next.ytDlp.state === "ready" ? "Everything is ready" : "Media engine needs attention",
+        message: next.ytDlp.state === "ready" ? "Downloads and conversions are good to go." : next.ytDlp.message ?? "Tap Update to install it.",
       });
     } catch (error) {
-      toast.push({ type: "error", title: "Engine check failed", message: error instanceof Error ? error.message : String(error) });
+      toast.push({ type: "error", title: "Couldn't check the media engine", message: error instanceof Error ? error.message : String(error) });
     }
   };
 
@@ -249,7 +249,7 @@ export function SettingsView({
 
             <Section
               title="App updates"
-              hint="Signed builds straight from GitHub Releases"
+              hint="Stay current automatically"
               action={
                 <span className={cn("text-[9.5px] font-medium", updateAvailable ? "text-sky-ink" : "text-mute/40")}>
                   {updateInstalling
@@ -327,8 +327,8 @@ export function SettingsView({
                 </Section>
 
                 <Section
-                  title="Engines"
-                  hint="yt-dlp fetches, ffmpeg merges"
+                  title="Media engine"
+                  hint="Powers downloading and conversion"
                   action={
                     <div className="flex items-center gap-1.5">
                       <Button size="sm" variant="ghost" onClick={() => void refresh()} disabled={busy}>
@@ -342,13 +342,13 @@ export function SettingsView({
                     </div>
                   }
                 >
-                  <BinaryRow name="yt-dlp" state={binaries?.ytDlp.state ?? "checking"} version={binaries?.ytDlp.version} message={binaries?.ytDlp.message} />
-                  <BinaryRow name="ffmpeg" state={binaries?.ffmpeg.state ?? "checking"} version={binaries?.ffmpeg.version} message={binaries?.ffmpeg.message} />
-                  <Row label="Auto-update yt-dlp">
-                    <Switch checked={settings.autoUpdateYtDlp} onCheckedChange={(autoUpdateYtDlp) => void save({ autoUpdateYtDlp })} aria-label="Auto-update yt-dlp" />
+                  <BinaryRow name="Downloader" state={binaries?.ytDlp.state ?? "checking"} version={binaries?.ytDlp.version} message={binaries?.ytDlp.message} />
+                  <BinaryRow name="Converter" state={binaries?.ffmpeg.state ?? "checking"} version={binaries?.ffmpeg.version} message={binaries?.ffmpeg.message} />
+                  <Row label="Keep tools current automatically">
+                    <Switch checked={settings.autoUpdateYtDlp} onCheckedChange={(autoUpdateYtDlp) => void save({ autoUpdateYtDlp })} aria-label="Keep media tools current automatically" />
                   </Row>
                   <p className="pt-3 text-[9.5px] text-mute/35">
-                    NovaTube {appInfo?.version ?? "1.0.0"} · Tauri {appInfo?.tauri ?? "—"} · no telemetry
+                    NovaTube {appInfo?.version ?? "1.0.0"} · No telemetry · Everything stays on your device
                   </p>
                 </Section>
               </motion.div>
@@ -372,7 +372,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section>
+    <section className="glass rounded-[24px] p-5">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h2 className="text-[9.5px] font-semibold uppercase tracking-[0.2em] text-mute/60">{title}</h2>

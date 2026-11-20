@@ -273,7 +273,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
           <h1 className="mt-5 font-display text-[50px] font-bold leading-[1.02] tracking-[-0.045em] text-mist sm:text-[58px]">
             Paste it.
             <br />
-            <span className="text-sky-ink">Keep it.</span>
+            <span className="gemini-text">Keep it.</span>
           </h1>
           <p className="mt-6 max-w-[360px] text-[12.5px] leading-relaxed text-mute/65">
             Drop a YouTube link and NovaTube saves the video or audio straight to your folder — no ads, no clutter.
@@ -292,8 +292,8 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
         >
           <div
             className={cn(
-              "rounded-[22px] bg-sky p-2 text-on-sky transition-shadow duration-300",
-              focused && "shadow-[0_0_0_3px_rgba(158,189,255,0.22),0_28px_80px_-50px_rgba(158,189,255,0.8)]",
+              "rounded-[22px] bg-[linear-gradient(120deg,#4285f4_0%,#5b7ff2_50%,#9b72cb_100%)] p-2 text-on-sky shadow-[0_30px_80px_-52px_rgba(66,133,244,0.95)] transition-shadow duration-300",
+              focused && "shadow-[0_0_0_3px_rgba(66,133,244,0.25),0_28px_80px_-50px_rgba(66,133,244,0.85)]",
             )}
           >
             <form
@@ -346,43 +346,51 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   {pasteLoading ? <Spinner className="size-4" /> : <ClipboardPaste className="size-[16px]" />}
                 </button>
 
-                <button
+                <motion.button
                   type="submit"
+                  whileHover={!isSupportedUrl(url) || loadingMeta ? undefined : { scale: 1.06 }}
+                  whileTap={!isSupportedUrl(url) || loadingMeta ? undefined : { scale: 0.92 }}
+                  transition={{ type: "spring", stiffness: 520, damping: 28 }}
                   disabled={!isSupportedUrl(url) || loadingMeta}
                   aria-label={quick ? "Download" : "Fetch details"}
-                  className="grid size-11 shrink-0 place-items-center rounded-[15px] bg-on-sky text-sky outline-none transition-opacity hover:opacity-90 disabled:opacity-35"
+                  className="tactile grid size-11 shrink-0 place-items-center rounded-[15px] bg-white text-sky outline-none disabled:opacity-35"
                 >
                   {loadingMeta ? <Spinner className="size-4" /> : <ArrowRight className="size-4" />}
-                </button>
+                </motion.button>
               </div>
             </form>
 
             <div className="flex items-center justify-between px-3 pb-0.5 pt-0.5 text-[9.5px] text-on-sky/55">
               <span>{quick ? "One click · no extra choices" : "Fetches details first"}</span>
               <div className="flex items-center gap-1">
-                <button
+                <motion.button
                   type="button"
                   onClick={() => changeMode("quick")}
-                  className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", quick ? "font-semibold text-on-sky" : "hover:text-on-sky/80")}
+                  whileTap={{ scale: 0.92 }}
+                  className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", quick ? "bg-white/15 font-semibold text-white" : "text-white/75 hover:text-white")}
                 >
                   Quick
-                </button>
+                </motion.button>
                 <span className="opacity-30">/</span>
-                <button
+                <motion.button
                   type="button"
                   onClick={() => changeMode("advanced")}
-                  className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", !quick ? "font-semibold text-on-sky" : "hover:text-on-sky/80")}
+                  whileTap={{ scale: 0.92 }}
+                  className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", !quick ? "bg-white/15 font-semibold text-white" : "text-white/75 hover:text-white")}
                 >
                   Advanced
-                </button>
+                </motion.button>
               </div>
             </div>
           </div>
 
-          <button
+          <motion.button
             type="button"
             onClick={() => changeMode(quick ? "advanced" : "quick")}
-            className="group flex w-full items-center gap-4 rounded-[22px] border border-fog/[0.1] px-5 py-3.5 text-left outline-none transition-colors hover:border-fog/[0.16] hover:bg-fog/[0.02] focus-visible:ring-2 focus-visible:ring-sky/45"
+            whileHover={{ scale: 1.008 }}
+            whileTap={{ scale: 0.985 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            className="glass group flex w-full items-center gap-4 rounded-[22px] px-5 py-3.5 text-left outline-none transition-colors hover:bg-fog/[0.03] focus-visible:ring-2 focus-visible:ring-sky/45"
           >
             <span className="grid size-9 shrink-0 place-items-center rounded-full border border-fog/[0.1] text-mute/70">
               <Settings2 className="size-4" />
@@ -394,7 +402,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
               </span>
             </span>
             <ArrowUpRight className="size-4 shrink-0 text-mute/45 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-          </button>
+          </motion.button>
 
           {error ? (
             <div className="flex items-start justify-between gap-3 rounded-[16px] border border-danger/20 px-4 py-3">
@@ -412,10 +420,10 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
             <div className="flex items-center justify-between gap-3 rounded-[16px] border border-warn/20 px-4 py-3">
               <div className="flex items-center gap-2 text-[10.5px] text-warn/85">
                 <AlertCircle className="size-3.5 shrink-0 text-warn" />
-                <span>{engine?.message ?? "yt-dlp is not ready yet."}</span>
+                <span>The media engine needs a quick refresh before downloads can start.</span>
               </div>
               <button type="button" onClick={onOpenSettings} className="shrink-0 text-[10px] font-semibold text-warn outline-none hover:underline">
-                Settings
+                Fix in Settings
               </button>
             </div>
           ) : null}
@@ -425,7 +433,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
               <Spinner className="size-3.5 shrink-0 text-sky-ink" />
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-mute/65">
-                  {engine?.state === "updating" ? "Updating yt-dlp" : "Preparing yt-dlp"} · {engine?.progress ?? 0}%
+                  {engine?.state === "updating" ? "Refreshing the media engine" : "Preparing the media engine"} · {engine?.progress ?? 0}%
                 </p>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
                   <motion.div

@@ -114,6 +114,10 @@ pub struct DownloadItem {
     pub playlist_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stage_detail: Option<String>,
+    /// Set when the media file already exists and only the compression pass
+    /// has to run again after a restart ("compress").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resume_stage: Option<String>,
     pub created_at: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub completed_at: Option<i64>,
@@ -181,10 +185,10 @@ pub struct AppSettings {
 
 impl Default for AppSettings {
     fn default() -> Self {
+        // First run always starts in the user's real Downloads folder.
         let download_dir = dirs::download_dir()
             .or_else(dirs::home_dir)
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("NovaTube");
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
 
         Self {
             download_dir: download_dir.to_string_lossy().to_string(),
@@ -227,7 +231,7 @@ impl BinaryInfo {
             version: String::new(),
             state: "checking".into(),
             progress: 0,
-            message: Some(format!("Locating {name}…")),
+            message: Some("Getting things ready…".into()),
         }
     }
 }

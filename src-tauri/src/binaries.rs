@@ -78,7 +78,7 @@ impl Binaries {
         let ffmpeg = self.locate_ffmpeg();
         self.mutate(|status| {
             status.ffmpeg = BinaryInfo {
-                name: "ffmpeg".into(),
+                name: "Converter".into(),
                 path: ffmpeg
                     .as_ref()
                     .map(|path| path.to_string_lossy().to_string())
@@ -89,7 +89,7 @@ impl Binaries {
                 message: if ffmpeg.is_some() {
                     None
                 } else {
-                    Some("FFmpeg was not found in the app resources.".into())
+                    Some("The media converter was not found. Restart NovaTube to restore it.".into())
                 },
             };
         });
@@ -98,7 +98,7 @@ impl Binaries {
         if let Some(path) = self.locate_ytdlp() {
             self.mutate(|status| {
                 status.yt_dlp = BinaryInfo {
-                    name: "yt-dlp".into(),
+                    name: "Media engine".into(),
                     path: path.to_string_lossy().to_string(),
                     version: String::new(),
                     state: "ready".into(),
@@ -136,9 +136,9 @@ impl Binaries {
     pub async fn refresh(self: &Arc<Self>) -> BinariesStatus {
         self.mutate(|status| {
             status.yt_dlp.state = "checking".into();
-            status.yt_dlp.message = Some("Checking yt-dlp…".into());
+            status.yt_dlp.message = Some("Checking the media engine…".into());
             status.ffmpeg.state = "checking".into();
-            status.ffmpeg.message = Some("Checking ffmpeg…".into());
+            status.ffmpeg.message = Some("Checking the converter…".into());
         });
 
         let ffmpeg = self.resolve_ffmpeg().await;
@@ -146,7 +146,7 @@ impl Binaries {
 
         self.mutate(|status| {
             status.ffmpeg = BinaryInfo {
-                name: "ffmpeg".into(),
+                name: "Converter".into(),
                 path: ffmpeg.as_ref().map(|info| info.0.clone()).unwrap_or_default(),
                 version: ffmpeg.as_ref().map(|info| info.1.clone()).unwrap_or_default(),
                 state: if ffmpeg.is_some() { "ready" } else { "error" }.into(),
@@ -154,13 +154,13 @@ impl Binaries {
                 message: if ffmpeg.is_some() {
                     None
                 } else {
-                    Some("FFmpeg was not found in the app resources.".into())
+                    Some("The media converter was not found. Restart NovaTube to restore it.".into())
                 },
             };
 
             status.yt_dlp = match ytdlp {
                 Some((path, version)) => BinaryInfo {
-                    name: "yt-dlp".into(),
+                    name: "Media engine".into(),
                     path,
                     version,
                     state: "ready".into(),
@@ -168,12 +168,12 @@ impl Binaries {
                     message: None,
                 },
                 None => BinaryInfo {
-                    name: "yt-dlp".into(),
+                    name: "Media engine".into(),
                     path: String::new(),
                     version: String::new(),
                     state: "missing".into(),
                     progress: 0,
-                    message: Some("yt-dlp is not installed.".into()),
+                    message: Some("The media engine is not installed yet.".into()),
                 },
             };
         });
@@ -200,7 +200,7 @@ impl Binaries {
         } else {
             Err(current
                 .message
-                .unwrap_or_else(|| "yt-dlp is not available. Update it in Settings and retry.".into()))
+                .unwrap_or_else(|| "The media engine is not available. Refresh it in Settings and try again.".into()))
         }
     }
 
@@ -213,7 +213,7 @@ impl Binaries {
         if let Some((path, version)) = self.resolve_ffmpeg().await {
             self.mutate(|status| {
                 status.ffmpeg = BinaryInfo {
-                    name: "ffmpeg".into(),
+                    name: "Converter".into(),
                     path: path.clone(),
                     version,
                     state: "ready".into(),
@@ -223,7 +223,7 @@ impl Binaries {
             });
             return Ok(path);
         }
-        Err("FFmpeg is not available.".into())
+        Err("The media converter is not available.".into())
     }
 
     fn bin_dir(&self) -> &Path {
@@ -331,9 +331,9 @@ impl Binaries {
             status.yt_dlp.state = if is_update { "updating" } else { "downloading" }.into();
             status.yt_dlp.progress = 0;
             status.yt_dlp.message = Some(if is_update {
-                "Updating yt-dlp…".into()
+                "Refreshing the media engine…".into()
             } else {
-                "Downloading yt-dlp (first launch)…".into()
+                "Setting up the media engine…".into()
             });
         });
 
@@ -342,11 +342,11 @@ impl Binaries {
             .get(url)
             .send()
             .await
-            .map_err(|error| format!("Could not download yt-dlp: {error}"))?;
+            .map_err(|error| format!("Could not download the media engine: {error}"))?;
 
         if !response.status().is_success() {
             return Err(format!(
-                "yt-dlp download failed (HTTP {}). Check your internet connection.",
+                "The media engine could not be downloaded (HTTP {}). Check your internet connection.",
                 response.status()
             ));
         }
@@ -355,18 +355,18 @@ impl Binaries {
         let mut received: u64 = 0;
         let mut file = tokio::fs::File::create(&temp)
             .await
-            .map_err(|error| format!("Could not create the yt-dlp file: {error}"))?;
+            .map_err(|error| format!("Could not create the media engine file: {error}"))?;
 
         let mut response = response;
         let mut last_emit = Instant::now();
         while let Some(chunk) = response
             .chunk()
             .await
-            .map_err(|error| format!("yt-dlp download interrupted: {error}"))?
+            .map_err(|error| format!("The media engine download was interrupted: {error}"))?
         {
             file.write_all(&chunk)
                 .await
-                .map_err(|error| format!("Could not write yt-dlp: {error}"))?;
+                .map_err(|error| format!("Could not write the media engine: {error}"))?;
             received += chunk.len() as u64;
             if last_emit.elapsed() >= Duration::from_millis(160) {
                 last_emit = Instant::now();
@@ -381,7 +381,7 @@ impl Binaries {
 
         file.flush()
             .await
-            .map_err(|error| format!("Could not finish writing yt-dlp: {error}"))?;
+            .map_err(|error| format!("Could not finish installing the media engine: {error}"))?;
         drop(file);
 
         #[cfg(unix)]
@@ -393,15 +393,15 @@ impl Binaries {
         let _ = std::fs::remove_file(&target);
         tokio::fs::rename(&temp, &target)
             .await
-            .map_err(|error| format!("Could not install yt-dlp: {error}"))?;
+            .map_err(|error| format!("Could not install the media engine: {error}"))?;
 
         let version = version_of(&target, "--version")
             .await
-            .ok_or_else(|| "The downloaded yt-dlp binary could not be executed.".to_string())?;
+            .ok_or_else(|| "The downloaded media engine could not be started.".to_string())?;
 
         self.mutate(|status| {
             status.yt_dlp = BinaryInfo {
-                name: "yt-dlp".into(),
+                name: "Media engine".into(),
                 path: target.to_string_lossy().to_string(),
                 version,
                 state: "ready".into(),

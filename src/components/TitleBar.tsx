@@ -2,9 +2,9 @@ import { motion } from "framer-motion";
 import { Minus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ViewId } from "@shared/types";
+import appIcon from "../../src-tauri/icons/128x128.png";
 import { api } from "../lib/api";
 import { cn } from "../lib/utils";
-import { AnimatedSparkles } from "./icons/Animated";
 
 function RestoreGlyph() {
   return (
@@ -38,15 +38,16 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
   return (
     <header
       data-tauri-drag-region
-      className="drag-region relative z-50 flex h-10 w-full shrink-0 items-center justify-between border-b border-fog/[0.07] bg-ink-950"
+      className="drag-region relative z-50 flex h-10 w-full shrink-0 items-center justify-between border-b border-fog/[0.07] bg-ink-950/55 backdrop-blur-2xl"
     >
       <div className="flex h-full items-center gap-2.5 pl-5">
         <motion.div
-          whileHover={{ rotate: 8, scale: 1.06 }}
-          transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          className="grid size-[22px] place-items-center rounded-[7px] bg-sky text-on-sky"
+          whileHover={{ rotate: 4, scale: 1.08 }}
+          whileTap={{ scale: 0.92 }}
+          transition={{ type: "spring", stiffness: 420, damping: 22 }}
+          className="relative grid size-[22px] place-items-center overflow-hidden rounded-[7px] ring-1 ring-white/15 shadow-[0_0_20px_-4px_rgba(66,133,244,0.9)]"
         >
-          <AnimatedSparkles className="size-[12px]" />
+          <img src={appIcon} alt="NovaTube" draggable={false} className="size-full object-cover" />
         </motion.div>
         <span className="font-display text-[12.5px] font-bold tracking-[-0.015em] text-mist/90">NovaTube</span>
       </div>

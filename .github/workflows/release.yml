@@ -64,7 +64,7 @@ jobs:
           $sha = "${{ github.sha }}".Substring(0, 7)
           "version=$version" >> $env:GITHUB_OUTPUT
           "short_sha=$sha" >> $env:GITHUB_OUTPUT
-          "tag=v$version.${{ github.run_attempt }}" >> $env:GITHUB_OUTPUT
+          "tag=v$version" >> $env:GITHUB_OUTPUT
 
       - name: Stamp app version
         shell: pwsh
@@ -98,20 +98,117 @@ jobs:
           $json.bundle.createUpdaterArtifacts = $true
           $json | ConvertTo-Json -Depth 32 | Set-Content $path -Encoding utf8
 
-      - name: Build and publish release
-        uses: tauri-apps/tauri-action@v0
+      # Build only. Publishing is handled below by action-gh-release, which
+      # updates an existing release in place instead of creating one through
+      # tauri-action (that release call intermittently fails with a
+      # content-length mismatch).
+      - name: Build installers
+        shell: pwsh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: ${{ steps.meta.outputs.tag }}
-          releaseName: "NovaTube ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.short_sha }})"
-          releaseBody: |
-            Automated build from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+        run: npm run dist
 
-            - yt-dlp is downloaded on first launch
-            - ffmpeg is bundled with the installer
-            - installed copies update themselves when a newer release appears
-          releaseDraft: false
-          prerelease: false
+      # The bundler only emits `.sig` files; the update manifest is ours to
+      # build. It points at the NSIS installer for this exact tag.
+      - name: Generate updater manifest
+        if: steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $version = "${{ steps.meta.outputs.version }}"
+          $repo = "${{ github.repository }}"
+          $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+          if (-not $installer) { throw "No NSIS installer found to describe in latest.json" }
+          $sigPath = "$($installer.FullName).sig"
+          if (-not (Test-Path $sigPath)) { throw "Missing signature for $($installer.Name)" }
+          $manifest = [ordered]@{
+            version   = $version
+            notes     = "NovaTube $version"
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = (Get-Content $sigPath -Raw).Trim()
+                url       = "https://github.com/$repo/releases/download/$tag/$($installer.Name)"
+              }
+            }
+          }
+          $out = "src-tauri/target/release/bundle/latest.json"
+          $manifest | ConvertTo-Json -Depth 8 | Set-Content $out -Encoding utf8
+          Write-Host "Wrote $out"
+          Get-Content $out
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: "NovaTube ${{ steps.meta.outputs.version }} (${{ steps.meta.outputs.short_sha }})"
+          target_commitish: ${{ github.sha }}
+          fail_on_unmatched_files: false
+          generate_release_notes: false
+          body: |
+            NovaTube ${{ steps.meta.outputs.version }} — built from commit `${{ github.sha }}` on `${{ github.ref_name }}`.
+
+            - Windows installers (MSI and NSIS) are attached below.
+            - Installed copies update themselves when a newer release appears.
+          files: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/msi/*.msi.sig
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sig
+            src-tauri/target/release/bundle/latest.json
+
+      # Uploads are retried once, then every asset is compared byte-for-byte
+      # against the file on disk so a truncated upload can never ship silently.
+      - name: Verify release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "${{ steps.meta.outputs.tag }}"
+          $expected = @{}
+          foreach ($pattern in @(
+            "src-tauri/target/release/bundle/msi/*.msi",
+            "src-tauri/target/release/bundle/msi/*.msi.sig",
+            "src-tauri/target/release/bundle/nsis/*.exe",
+            "src-tauri/target/release/bundle/nsis/*.exe.sig",
+            "src-tauri/target/release/bundle/latest.json"
+          )) {
+            Get-ChildItem $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+              $expected[$_.Name] = $_.Length
+            }
+          }
+
+          for ($attempt = 1; $attempt -le 3; $attempt++) {
+            $json = gh release view $tag --json assets | ConvertFrom-Json
+            $actual = @{}
+            foreach ($asset in $json.assets) { $actual[$asset.name] = $asset.size }
+
+            $mismatched = @()
+            foreach ($name in $expected.Keys) {
+              if (-not $actual.ContainsKey($name)) {
+                $mismatched += "$name (missing)"
+              } elseif ([int64]$actual[$name] -ne [int64]$expected[$name]) {
+                $mismatched += "$name (remote $($actual[$name]) vs local $($expected[$name]))"
+              }
+            }
+
+            if ($mismatched.Count -eq 0) {
+              Write-Host "All $($expected.Count) assets verified."
+              exit 0
+            }
+
+            Write-Host "Attempt ${attempt}: $($mismatched -join '; ')"
+            if ($attempt -lt 3) {
+              Write-Host "Re-uploading mismatched files…"
+              $files = $mismatched | ForEach-Object { $_ -replace " \(.*$", "" }
+              foreach ($name in $files) {
+                $path = Get-ChildItem -Recurse "src-tauri/target/release/bundle" -Filter $name | Select-Object -First 1
+                if ($path) { gh release upload $tag $path.FullName --clobber }
+              }
+              Start-Sleep -Seconds 5
+            }
+          }
+
+          throw "Release assets did not match the local files after retries."

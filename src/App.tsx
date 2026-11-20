@@ -185,10 +185,17 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-ink-950">
+      <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-transparent">
+        <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+          <span className="aurora-blob one -left-44 -top-56 size-[640px]" />
+          <span className="aurora-blob two -right-40 top-[-14rem] size-[560px]" />
+          <span className="aurora-blob three -left-24 bottom-[-18rem] size-[520px]" />
+          <span className="aurora-blob four right-[-10rem] bottom-[-14rem] size-[480px]" />
+        </div>
+
         <TitleBar view={view} onChange={changeView} activeCount={activeCount} version={appInfo?.version} />
 
-        <main ref={mainRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <main ref={mainRef} className="relative z-10 min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
           <div className="mx-auto flex min-h-full w-full max-w-[1180px] flex-col px-8 lg:px-10">
             <div className="flex-1">
               <div className={view === "downloader" ? "min-h-full" : "hidden"} aria-hidden={view !== "downloader"}>
@@ -236,7 +243,7 @@ export default function App() {
               <span className="truncate">
                 Saves to {settings?.downloadDir ? truncateMiddle(settings.downloadDir, 62) : "your downloads folder"}
               </span>
-              <span className="shrink-0">yt-dlp + ffmpeg · local only</span>
+              <span className="shrink-0">Private by design · everything stays on your device</span>
             </footer>
           </div>
         </main>
