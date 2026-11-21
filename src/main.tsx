@@ -4,6 +4,7 @@ import { Component, StrictMode, type ErrorInfo, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ToastProvider } from "./components/Toasts";
+import { LanguageProvider } from "./lib/i18n/LanguageContext";
 import "./index.css";
 
 /* Strict console lockdown: production builds do not expose logging APIs. */
@@ -54,9 +55,11 @@ if (root) {
   createRoot(root).render(
     <StrictMode>
       <ErrorBoundary>
-        <ToastProvider>
-          <App />
-        </ToastProvider>
+        <LanguageProvider>
+          <ToastProvider>
+            <App />
+          </ToastProvider>
+        </LanguageProvider>
       </ErrorBoundary>
     </StrictMode>,
   );

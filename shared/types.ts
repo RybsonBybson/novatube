@@ -5,6 +5,7 @@
 
 export type ViewId = "downloader" | "history" | "settings";
 export type ThemeMode = "system" | "dark" | "light";
+export type LanguageCode = "en" | "es" | "pt" | "ru" | "zh" | "ja" | "pl" | "de" | "fr" | "ar" | "hi" | "ko" | "it" | "tr";
 
 export type DownloadKind = "video" | "audio";
 export type VideoContainer = "mp4" | "mkv" | "webm";
@@ -143,6 +144,7 @@ export interface AppSettings {
   theme: ThemeMode;
   rememberView: boolean;
   lastView: ViewId;
+  language: LanguageCode;
 }
 
 export type BinaryState = "checking" | "missing" | "downloading" | "updating" | "ready" | "error";
@@ -191,11 +193,12 @@ export interface NovaApi {
   downloads: {
     list(): Promise<DownloadItem[]>;
     add(input: AddDownloadInput): Promise<DownloadItem>;
-    addMany(inputs: AddDownloadInput[]): Promise<DownloadItem[]>;
+    addMany(inputs: AddDownloadInput[], prioritize?: boolean): Promise<DownloadItem[]>;
     pause(id: string): Promise<void>;
     resume(id: string): Promise<void>;
     cancel(id: string): Promise<void>;
     retry(id: string): Promise<void>;
+    moveToTop(id: string): Promise<void>;
     remove(id: string): Promise<void>;
     clearFinished(): Promise<void>;
     clearAll(): Promise<void>;

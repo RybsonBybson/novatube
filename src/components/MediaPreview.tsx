@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Gauge, ListChecks, ListVideo } from "lucide-react";
 import type { DownloadOptions, MediaInfo } from "@shared/types";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { formatDuration } from "../lib/utils";
 import { maxQualityLabel, optionsSummary } from "../lib/options";
 import { AdvancedOptions } from "./AdvancedOptions";
@@ -17,13 +18,20 @@ interface MediaPreviewProps {
 }
 
 function MediaHeader({ media }: { media: MediaInfo }) {
+  const { t } = useI18n();
   const isPlaylist = media.isPlaylist;
   const thumbnail = media.thumbnail ?? media.entries[0]?.thumbnail;
-  const quality = media.heights.length ? maxQualityLabel(media.heights) : null;
+  const quality = media.heights.length ? maxQualityLabel(media.heights, t) : null;
   const meta = [
-    media.channel ?? (isPlaylist ? "Playlist" : null),
-    isPlaylist ? `${media.playlistCount} videos` : media.isLive ? "Live" : media.duration ? formatDuration(media.duration) : null,
-    !isPlaylist && quality ? `${quality} max` : null,
+    media.channel ?? (isPlaylist ? t("media.playlist") : null),
+    isPlaylist
+      ? t("media.videos", { count: media.playlistCount })
+      : media.isLive
+        ? t("media.live")
+        : media.duration
+          ? formatDuration(media.duration)
+          : null,
+    !isPlaylist && quality ? t("media.max", { quality }) : null,
   ].filter(Boolean) as string[];
 
   return (
@@ -38,11 +46,13 @@ function MediaHeader({ media }: { media: MediaInfo }) {
         )}
         <div className="absolute left-2.5 top-2.5 flex gap-1.5">
           {media.isLive ? (
-            <span className="rounded-full bg-danger px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Live</span>
+            <span className="rounded-full bg-danger px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+              {t("media.live")}
+            </span>
           ) : null}
           {isPlaylist ? (
             <span className="rounded-full bg-black/60 px-2 py-0.5 text-[9.5px] font-semibold text-white/90 backdrop-blur">
-              {media.playlistCount} videos
+              {t("media.videos", { count: media.playlistCount })}
             </span>
           ) : null}
         </div>
@@ -70,6 +80,7 @@ function MediaHeader({ media }: { media: MediaInfo }) {
 }
 
 export function MediaPreview({ media, options, onChange, onDownload, onOpenPlaylist, adding }: MediaPreviewProps) {
+  const { t } = useI18n();
   const isPlaylist = media.isPlaylist;
 
   return (
@@ -86,9 +97,9 @@ export function MediaPreview({ media, options, onChange, onDownload, onOpenPlayl
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Button size="md" onClick={onOpenPlaylist} className="min-w-[180px]">
             <ListChecks className="size-4" />
-            Choose videos
+            {t("media.choose")}
           </Button>
-          <span className="text-[10.5px] text-mute/60">Batch options apply to every selected video.</span>
+          <span className="text-[10.5px] text-mute/60">{t("media.batchHint")}</span>
         </div>
       ) : (
         <>
@@ -99,15 +110,15 @@ export function MediaPreview({ media, options, onChange, onDownload, onOpenPlayl
           <div className="mt-7 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2 text-[10.5px] text-mute/70">
               <Gauge className="size-3.5 text-sky-ink/70" />
-              {optionsSummary(options)}
+              {optionsSummary(options, t)}
             </div>
             <Button size="md" onClick={onDownload} loading={adding} className="min-w-[168px]">
               {adding ? (
-                "Adding…"
+                t("media.adding")
               ) : (
                 <>
                   <AnimatedDownload className="size-4" />
-                  Download
+                  {t("studio.download")}
                 </>
               )}
             </Button>

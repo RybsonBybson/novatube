@@ -8,6 +8,9 @@ import type {
   SubtitleMode,
   VideoContainer,
 } from "@shared/types";
+import type { MessageKey } from "./i18n";
+
+export type Translate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 export interface QualityOption {
   id: QualityId;
@@ -63,9 +66,76 @@ export const SUBTITLE_MODES: { id: SubtitleMode; label: string }[] = [
   { id: "manual", label: "Manual" },
 ];
 
-export function maxQualityLabel(heights: number[]): string {
+/* ------------------------------- localized ------------------------------- */
+
+const CONTAINER_HINT: Record<VideoContainer, MessageKey> = {
+  mp4: "options.containerUniversal",
+  mkv: "options.containerAllStreams",
+  webm: "options.containerOpen",
+};
+
+const AUDIO_HINT: Record<AudioFormat, MessageKey> = {
+  mp3: "options.containerUniversal",
+  m4a: "options.audioAac",
+  wav: "options.audioUncompressed",
+  flac: "options.audioLossless",
+};
+
+const COMPRESSION_LABEL: Record<CompressionPreset, MessageKey> = {
+  none: "options.compOriginal",
+  balanced: "options.compBalanced",
+  high: "options.compHigher",
+  social: "options.compSocial",
+};
+
+const COMPRESSION_DESC: Record<CompressionPreset, MessageKey> = {
+  none: "options.compOriginalDesc",
+  balanced: "options.compBalancedDesc",
+  high: "options.compHigherDesc",
+  social: "options.compSocialDesc",
+};
+
+const SUBTITLE_LABEL: Record<SubtitleMode, MessageKey> = {
+  off: "options.subOff",
+  auto: "options.subAuto",
+  manual: "options.subManual",
+};
+
+export function qualityLabel(id: QualityId, t: Translate): string {
+  return id === "best" ? t("options.best") : (QUALITY_OPTIONS.find((option) => option.id === id)?.label ?? id);
+}
+
+export function qualityShort(id: QualityId, t: Translate): string {
+  return id === "best" ? t("options.bestShort") : (QUALITY_OPTIONS.find((option) => option.id === id)?.short ?? id);
+}
+
+export function containerHint(id: VideoContainer, t: Translate): string {
+  return t(CONTAINER_HINT[id]);
+}
+
+export function audioHint(id: AudioFormat, t: Translate): string {
+  return t(AUDIO_HINT[id]);
+}
+
+export function compressionLabel(id: CompressionPreset, t: Translate): string {
+  return t(COMPRESSION_LABEL[id]);
+}
+
+export function compressionDescription(id: CompressionPreset, t: Translate): string {
+  return t(COMPRESSION_DESC[id]);
+}
+
+export function subtitleLabel(id: SubtitleMode, t: Translate): string {
+  return t(SUBTITLE_LABEL[id]);
+}
+
+export function subtitleChoices(t: Translate): { id: SubtitleMode; label: string }[] {
+  return SUBTITLE_MODES.map((mode) => ({ id: mode.id, label: subtitleLabel(mode.id, t) }));
+}
+
+export function maxQualityLabel(heights: number[], t?: Translate): string {
   const max = heights[0];
-  if (!max) return "Best";
+  if (!max) return t ? t("options.bestShort") : "Best";
   if (max >= 4320) return "8K";
   if (max >= 2160) return "4K";
   if (max >= 1440) return "1440p";
@@ -101,11 +171,13 @@ export function optionsFromSettings(settings: AppSettings): DownloadOptions {
   };
 }
 
-export function optionsSummary(options: DownloadOptions): string {
+/** One-line plain-language summary, shared by the studio, preview and playlist. */
+export function optionsSummary(options: DownloadOptions, t: Translate): string {
   if (options.kind === "audio") {
-    return `${options.audioFormat.toUpperCase()} ${options.audioFormat === "mp3" ? `${options.audioQuality}kbps` : options.audioFormat === "m4a" ? "AAC" : "Lossless"}`;
+    if (options.audioFormat === "mp3") return `MP3 ${options.audioQuality} kbps`;
+    return `${options.audioFormat.toUpperCase()} · ${audioHint(options.audioFormat, t)}`;
   }
-  const quality = QUALITY_OPTIONS.find((option) => option.id === options.quality)?.short ?? options.quality;
-  const compression = options.compression === "none" ? "" : " · Compressed";
+  const quality = qualityShort(options.quality, t);
+  const compression = options.compression === "none" ? "" : ` · ${compressionLabel(options.compression, t)}`;
   return `${quality} ${options.container.toUpperCase()}${compression}`;
 }

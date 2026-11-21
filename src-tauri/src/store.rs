@@ -251,6 +251,13 @@ fn normalize(settings: &mut AppSettings) {
     settings.subtitles = pick(&settings.subtitles, &["off", "auto", "manual"], "off");
     settings.theme = pick(&settings.theme, &["system", "dark", "light"], "system");
     settings.last_view = pick(&settings.last_view, &["downloader", "history", "settings"], "downloader");
+    settings.language = pick(
+        &settings.language,
+        &[
+            "en", "es", "pt", "ru", "zh", "ja", "pl", "de", "fr", "ar", "hi", "ko", "it", "tr",
+        ],
+        "en",
+    );
 }
 
 fn pick(value: &str, allowed: &[&str], fallback: &str) -> String {

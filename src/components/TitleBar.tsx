@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import type { ViewId } from "@shared/types";
 import appIcon from "../../src-tauri/icons/128x128.png";
 import { api } from "../lib/api";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn } from "../lib/utils";
+import { LanguageMenu } from "./LanguageMenu";
 
 function RestoreGlyph() {
   return (
@@ -15,10 +17,10 @@ function RestoreGlyph() {
   );
 }
 
-const NAV: { id: ViewId; label: string }[] = [
-  { id: "downloader", label: "Studio" },
-  { id: "history", label: "Library" },
-  { id: "settings", label: "Settings" },
+const NAV: { id: ViewId; key: "nav.studio" | "nav.library" | "nav.settings" }[] = [
+  { id: "downloader", key: "nav.studio" },
+  { id: "history", key: "nav.library" },
+  { id: "settings", key: "nav.settings" },
 ];
 
 interface TitleBarProps {
@@ -30,6 +32,7 @@ interface TitleBarProps {
 
 export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps) {
   const [maximized, setMaximized] = useState(false);
+  const { t } = useI18n();
 
   useEffect(() => {
     return api.window.onMaximizeChange(setMaximized);
@@ -40,7 +43,7 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
       data-tauri-drag-region
       className="drag-region relative z-50 flex h-10 w-full shrink-0 items-center justify-between border-b border-fog/[0.07] bg-ink-950/55 backdrop-blur-2xl"
     >
-      <div className="flex h-full items-center gap-2.5 pl-5">
+      <div className="flex h-full shrink-0 items-center gap-2.5 pl-5">
         <motion.div
           whileHover={{ rotate: 4, scale: 1.08 }}
           whileTap={{ scale: 0.92 }}
@@ -58,7 +61,7 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
         onDoubleClick={() => void api.window.toggleMaximize()}
       />
 
-      <nav className="no-drag flex h-full items-center gap-1 pr-1">
+      <nav className="no-drag flex h-full items-center gap-1 px-1">
         {NAV.map((item) => {
           const active = view === item.id;
           return (
@@ -71,7 +74,7 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
                 active ? "text-mist" : "text-mute/55 hover:text-mist/85",
               )}
             >
-              {item.label}
+              {t(item.key)}
               {item.id === "downloader" && activeCount > 0 ? (
                 <span className="grid min-w-[15px] place-items-center rounded-full bg-sky px-1 text-[8px] font-bold leading-[15px] text-on-sky">
                   {activeCount}
@@ -82,24 +85,26 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
         })}
       </nav>
 
-      <span className="no-drag hidden px-3 font-mono text-[9.5px] text-mute/40 sm:block">v{version ?? "1.0.0"}</span>
+      <LanguageMenu variant="pill" className="mr-1.5" />
+
+      <span className="no-drag hidden px-2 font-mono text-[9.5px] text-mute/40 sm:block">v{version ?? "1.0.0"}</span>
 
       <span className="no-drag h-4 w-px bg-fog/[0.08]" />
 
       <div className="no-drag flex h-full items-center">
-        <button type="button" aria-label="Minimize" title="Minimize" className="window-control" onClick={() => void api.window.minimize()}>
+        <button type="button" aria-label={t("nav.minimize")} title={t("nav.minimize")} className="window-control" onClick={() => void api.window.minimize()}>
           <Minus className="size-[13px]" strokeWidth={1.6} />
         </button>
         <button
           type="button"
-          aria-label={maximized ? "Restore" : "Maximize"}
-          title={maximized ? "Restore" : "Maximize"}
+          aria-label={maximized ? t("nav.restore") : t("nav.maximize")}
+          title={maximized ? t("nav.restore") : t("nav.maximize")}
           className="window-control"
           onClick={() => void api.window.toggleMaximize()}
         >
           {maximized ? <RestoreGlyph /> : <span className="size-[10px] rounded-[1.5px] border border-current" />}
         </button>
-        <button type="button" aria-label="Close" title="Close" className="window-control close" onClick={() => void api.window.close()}>
+        <button type="button" aria-label={t("nav.close")} title={t("nav.close")} className="window-control close" onClick={() => void api.window.close()}>
           <X className="size-[14px]" strokeWidth={1.5} />
         </button>
       </div>

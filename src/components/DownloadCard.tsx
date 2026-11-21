@@ -3,6 +3,7 @@ import { memo } from "react";
 import {
   AlertTriangle,
   ArrowDownToLine,
+  ArrowUp,
   Ban,
   CheckCircle2,
   Clock3,
@@ -18,6 +19,8 @@ import {
   XCircle,
 } from "lucide-react";
 import type { DownloadItem, DownloadStatus } from "@shared/types";
+import type { MessageKey } from "../lib/i18n";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn, formatBytes, formatSpeed } from "../lib/utils";
 import { Spinner } from "./icons/Animated";
 
@@ -27,29 +30,43 @@ interface DownloadCardProps {
   onResume: (id: string) => void;
   onCancel: (id: string) => void;
   onRetry: (id: string) => void;
+  onMoveTop: (id: string) => void;
   onRemove: (id: string) => void;
   onOpenFile: (id: string) => void;
   onOpenFolder: (id: string) => void;
 }
 
-const STATUS: Record<DownloadStatus, { label: string; icon: typeof Clock3; text: string; bar: string }> = {
-  queued: { label: "Queued", icon: Clock3, text: "text-mute/60", bar: "bg-fog/20" },
-  fetching: { label: "Preparing", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
-  downloading: { label: "Downloading", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
-  processing: { label: "Processing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
-  compressing: { label: "Compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
-  completed: { label: "Done", icon: CheckCircle2, text: "text-sky-ink/80", bar: "bg-[linear-gradient(90deg,rgba(66,133,244,0.45),rgba(36,193,224,0.45))]" },
-  paused: { label: "Paused", icon: Pause, text: "text-orange-ink", bar: "bg-orange/60" },
-  cancelled: { label: "Cancelled", icon: Ban, text: "text-mute/50", bar: "bg-fog/15" },
-  error: { label: "Failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
+const STATUS: Record<DownloadStatus, { labelKey: MessageKey; icon: typeof Clock3; text: string; bar: string }> = {
+  queued: { labelKey: "card.queued", icon: Clock3, text: "text-mute/60", bar: "bg-fog/20" },
+  fetching: { labelKey: "card.preparing", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
+  downloading: { labelKey: "card.downloading", icon: ArrowDownToLine, text: "text-sky-ink", bar: "bg-[linear-gradient(90deg,#4285f4,#24c1e0)]" },
+  processing: { labelKey: "card.processing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
+  compressing: { labelKey: "card.compressing", icon: Layers, text: "text-mauve-ink", bar: "bg-[linear-gradient(90deg,#9b72cb,#d96570)]" },
+  completed: { labelKey: "card.completed", icon: CheckCircle2, text: "text-sky-ink/80", bar: "bg-[linear-gradient(90deg,rgba(66,133,244,0.45),rgba(36,193,224,0.45))]" },
+  paused: { labelKey: "card.paused", icon: Pause, text: "text-orange-ink", bar: "bg-orange/60" },
+  cancelled: { labelKey: "card.cancelled", icon: Ban, text: "text-mute/50", bar: "bg-fog/15" },
+  error: { labelKey: "card.failed", icon: XCircle, text: "text-danger", bar: "bg-danger/80" },
 };
 
-export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume, onCancel, onRetry, onRemove, onOpenFile, onOpenFolder }: DownloadCardProps) {
+export const DownloadCard = memo(function DownloadCard({
+  item,
+  onPause,
+  onResume,
+  onCancel,
+  onRetry,
+  onMoveTop,
+  onRemove,
+  onOpenFile,
+  onOpenFolder,
+}: DownloadCardProps) {
+  const { t } = useI18n();
   const status = STATUS[item.status];
   const StatusIcon = status.icon;
+  const statusLabel = t(status.labelKey);
   const active = ["fetching", "downloading", "processing", "compressing"].includes(item.status);
   const working = ["fetching", "processing", "compressing"].includes(item.status);
   const percent = Math.max(0, Math.min(100, item.progress));
+  const canMoveTop = ["queued", "paused", "error", "cancelled"].includes(item.status);
   const showBar =
     ["fetching", "downloading", "processing", "compressing", "paused"].includes(item.status) ||
     (item.status === "queued" && item.progress > 0);
@@ -99,38 +116,43 @@ export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume
             </div>
 
             <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              {canMoveTop ? (
+                <CardAction label={t("queue.moveTop")} onClick={() => onMoveTop(item.id)} tone="accent">
+                  <ArrowUp className="size-3.5" />
+                </CardAction>
+              ) : null}
               {item.status === "downloading" ? (
-                <CardAction label="Pause" onClick={() => onPause(item.id)}>
+                <CardAction label={t("card.pause")} onClick={() => onPause(item.id)}>
                   <Pause className="size-3.5" />
                 </CardAction>
               ) : null}
               {item.status === "paused" ? (
-                <CardAction label="Resume" onClick={() => onResume(item.id)}>
+                <CardAction label={t("card.resume")} onClick={() => onResume(item.id)}>
                   <Play className="size-3.5" />
                 </CardAction>
               ) : null}
               {active || item.status === "paused" ? (
-                <CardAction label="Cancel" onClick={() => onCancel(item.id)} tone="danger">
+                <CardAction label={t("card.cancel")} onClick={() => onCancel(item.id)} tone="danger">
                   <X className="size-3.5" />
                 </CardAction>
               ) : null}
               {item.status === "completed" ? (
                 <>
-                  <CardAction label="Open file" onClick={() => onOpenFile(item.id)} tone="accent">
+                  <CardAction label={t("card.openFile")} onClick={() => onOpenFile(item.id)} tone="accent">
                     <ExternalLink className="size-3.5" />
                   </CardAction>
-                  <CardAction label="Show in folder" onClick={() => onOpenFolder(item.id)}>
+                  <CardAction label={t("card.showFolder")} onClick={() => onOpenFolder(item.id)}>
                     <FolderOpen className="size-3.5" />
                   </CardAction>
                 </>
               ) : null}
               {item.status === "error" || item.status === "cancelled" ? (
-                <CardAction label="Retry" onClick={() => onRetry(item.id)} tone="accent">
+                <CardAction label={t("card.retry")} onClick={() => onRetry(item.id)} tone="accent">
                   <RotateCcw className="size-3.5" />
                 </CardAction>
               ) : null}
               {!active ? (
-                <CardAction label="Remove" onClick={() => onRemove(item.id)} tone="danger">
+                <CardAction label={t("card.remove")} onClick={() => onRemove(item.id)} tone="danger">
                   <Trash2 className="size-3.5" />
                 </CardAction>
               ) : null}
@@ -151,7 +173,7 @@ export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume
                 <div className="flex min-w-0 items-center gap-2 text-mute/60">
                   <span className={cn("inline-flex items-center gap-1", status.text)}>
                     {working ? <Spinner className="size-2.5" /> : null}
-                    {item.stageDetail ?? (item.status === "completed" ? status.label : status.label)}
+                    {item.stageDetail ?? statusLabel}
                   </span>
                   {item.speed ? (
                     <>
@@ -177,7 +199,7 @@ export const DownloadCard = memo(function DownloadCard({ item, onPause, onResume
             </div>
           ) : (
             <p className="mt-2 flex items-center gap-1.5 text-[9.5px] text-mute/50">
-              <span className={status.text}>{item.stageDetail ?? status.label}</span>
+              <span className={status.text}>{item.stageDetail ?? statusLabel}</span>
               {item.status === "completed" && sizeText ? <span className="tabular-nums text-mute/50">· {sizeText}</span> : null}
             </p>
           )}
@@ -231,16 +253,17 @@ function CardAction({
 }
 
 export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
+  const { t } = useI18n();
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center justify-center py-14 text-center">
       <div className="grid size-10 place-items-center rounded-full border border-fog/[0.08]">
         <ArrowDownToLine className="size-4 text-mute/45" />
       </div>
-      <p className="mt-3 text-[11.5px] font-medium text-mute/70">Nothing downloading</p>
-      <p className="mt-1 max-w-xs text-[10px] leading-relaxed text-mute/40">Paste a link above. Downloads keep running while you browse.</p>
+      <p className="mt-3 text-[11.5px] font-medium text-mute/70">{t("card.emptyTitle")}</p>
+      <p className="mt-1 max-w-xs text-[10px] leading-relaxed text-mute/40">{t("card.emptyHint")}</p>
       {onBrowse ? (
         <button type="button" onClick={onBrowse} className="mt-3 text-[10px] font-medium text-sky-ink/80 hover:text-sky-ink">
-          Open library
+          {t("card.openLibrary")}
         </button>
       ) : null}
     </motion.div>
@@ -248,6 +271,7 @@ export function QueueEmpty({ onBrowse }: { onBrowse?: () => void }) {
 }
 
 export function MetadataSkeleton() {
+  const { t } = useI18n();
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="glass overflow-hidden rounded-[20px] p-4">
       <div className="flex gap-5">
@@ -258,7 +282,7 @@ export function MetadataSkeleton() {
           <div className="h-5 w-3/5 rounded-full bg-fog/[0.05]" />
           <div className="flex items-center gap-2 pt-2 text-[10.5px] text-mute/60">
             <Spinner className="size-3.5 text-sky-ink" />
-            Reading metadata…
+            {t("card.readingMetadata")}
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { ClipboardCopy, ClipboardPaste, Scissors, TextSelect } from "lucide-reac
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api } from "../lib/api";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn } from "../lib/utils";
 
 export interface ContextMenuState {
@@ -20,6 +21,7 @@ export function isEditableTarget(target: EventTarget | null): target is HTMLInpu
 }
 
 export function ContextMenu({ state, onClose }: { state: ContextMenuState | null; onClose: () => void }) {
+  const { t } = useI18n();
   const menuRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
 
@@ -118,10 +120,10 @@ export function ContextMenu({ state, onClose }: { state: ContextMenuState | null
         style={{ left: x, top: y }}
         onContextMenu={(event) => event.preventDefault()}
       >
-        <MenuItem icon={ClipboardCopy} label="Copy" hint="Ctrl+C" disabled={!hasSelection || isPassword} onClick={() => void copy()} />
-        <MenuItem icon={Scissors} label="Cut" hint="Ctrl+X" disabled={!hasSelection || isPassword} onClick={() => void cut()} />
-        <MenuItem icon={ClipboardPaste} label="Paste" hint="Ctrl+V" onClick={() => void paste()} />
-        <MenuItem icon={TextSelect} label="Select all" hint="Ctrl+A" onClick={selectAll} />
+        <MenuItem icon={ClipboardCopy} label={t("menu.copy")} hint="Ctrl+C" disabled={!hasSelection || isPassword} onClick={() => void copy()} />
+        <MenuItem icon={Scissors} label={t("menu.cut")} hint="Ctrl+X" disabled={!hasSelection || isPassword} onClick={() => void cut()} />
+        <MenuItem icon={ClipboardPaste} label={t("menu.paste")} hint="Ctrl+V" onClick={() => void paste()} />
+        <MenuItem icon={TextSelect} label={t("menu.selectAll")} hint="Ctrl+A" onClick={selectAll} />
       </motion.div>
     </AnimatePresence>,
     document.body,

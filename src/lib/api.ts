@@ -99,11 +99,13 @@ export const api: NovaApi = {
   downloads: {
     list: () => call<DownloadItem[]>("downloads_list"),
     add: (input: AddDownloadInput) => call<DownloadItem>("downloads_add", { input }),
-    addMany: (inputs: AddDownloadInput[]) => call<DownloadItem[]>("downloads_add_many", { inputs }),
+    addMany: (inputs: AddDownloadInput[], prioritize?: boolean) =>
+      call<DownloadItem[]>("downloads_add_many", { inputs, prioritize: prioritize ?? false }),
     pause: (id: string) => call<void>("downloads_pause", { id }),
     resume: (id: string) => call<void>("downloads_resume", { id }),
     cancel: (id: string) => call<void>("downloads_cancel", { id }),
     retry: (id: string) => call<void>("downloads_retry", { id }),
+    moveToTop: (id: string) => call<void>("downloads_move_to_top", { id }),
     remove: (id: string) => call<void>("downloads_remove", { id }),
     clearFinished: () => call<void>("downloads_clear_finished"),
     clearAll: () => call<void>("downloads_clear_all"),

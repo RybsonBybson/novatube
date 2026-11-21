@@ -35,9 +35,10 @@ pub async fn downloads_add(input: AddDownloadInput, state: State<'_, AppState>) 
 #[tauri::command]
 pub async fn downloads_add_many(
     inputs: Vec<AddDownloadInput>,
+    prioritize: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<Vec<DownloadItem>, String> {
-    state.queue.add_many(inputs)
+    state.queue.add_many(inputs, prioritize.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -65,6 +66,13 @@ pub fn downloads_cancel(id: String, state: State<'_, AppState>) -> Result<(), St
 pub fn downloads_retry(id: String, state: State<'_, AppState>) -> Result<(), String> {
     require(&id)?;
     state.queue.retry(&id);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn downloads_move_to_top(id: String, state: State<'_, AppState>) -> Result<(), String> {
+    require(&id)?;
+    state.queue.move_to_top(&id);
     Ok(())
 }
 

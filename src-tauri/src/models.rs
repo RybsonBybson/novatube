@@ -181,6 +181,9 @@ pub struct AppSettings {
     pub theme: String,
     pub remember_view: bool,
     pub last_view: String,
+    /// UI language code (BCP-47-ish, e.g. "en", "pl", "zh"). Persisted so the
+    /// chosen language survives restarts.
+    pub language: String,
 }
 
 impl Default for AppSettings {
@@ -207,6 +210,7 @@ impl Default for AppSettings {
             theme: "system".into(),
             remember_view: true,
             last_view: "downloader".into(),
+            language: "en".into(),
         }
     }
 }

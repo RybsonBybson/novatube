@@ -62,13 +62,14 @@ export function useDownloads() {
     [guard],
   );
   const addMany = useCallback(
-    (inputs: AddDownloadInput[]) => guard(() => api.downloads.addMany(inputs)),
+    (inputs: AddDownloadInput[], prioritize?: boolean) => guard(() => api.downloads.addMany(inputs, prioritize)),
     [guard],
   );
   const pause = useCallback((id: string) => void guard(() => api.downloads.pause(id)), [guard]);
   const resume = useCallback((id: string) => void guard(() => api.downloads.resume(id)), [guard]);
   const cancel = useCallback((id: string) => void guard(() => api.downloads.cancel(id)), [guard]);
   const retry = useCallback((id: string) => void guard(() => api.downloads.retry(id)), [guard]);
+  const moveToTop = useCallback((id: string) => void guard(() => api.downloads.moveToTop(id)), [guard]);
   const remove = useCallback((id: string) => void guard(() => api.downloads.remove(id)), [guard]);
   const clearFinished = useCallback(() => void guard(() => api.downloads.clearFinished()), [guard]);
   const clearAll = useCallback(() => void guard(() => api.downloads.clearAll()), [guard]);
@@ -84,6 +85,7 @@ export function useDownloads() {
     resume,
     cancel,
     retry,
+    moveToTop,
     remove,
     clearFinished,
     clearAll,

@@ -45,16 +45,32 @@ export function formatDate(timestamp?: number): string {
   }).format(new Date(timestamp));
 }
 
-export function timeAgo(timestamp?: number): string {
+/** Relative time in the active language, falling back to compact English. */
+export function timeAgo(timestamp?: number, locale?: string): string {
   if (!timestamp) return "—";
   const diff = Date.now() - timestamp;
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (!locale) {
+    if (minutes < 1) return "just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return formatDate(timestamp);
+  }
+  let relative: Intl.RelativeTimeFormat;
+  try {
+    relative = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  } catch {
+    return timeAgo(timestamp);
+  }
+  if (minutes < 1) return relative.format(0, "minute");
+  if (minutes < 60) return relative.format(-minutes, "minute");
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return relative.format(-hours, "hour");
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return relative.format(-days, "day");
   return formatDate(timestamp);
 }
 

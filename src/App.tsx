@@ -11,6 +11,7 @@ import { useDownloads } from "./hooks/useDownloads";
 import { useTheme } from "./hooks/useTheme";
 import { useUpdater } from "./hooks/useUpdater";
 import { api } from "./lib/api";
+import { useI18n } from "./lib/i18n/LanguageContext";
 import { truncateMiddle } from "./lib/utils";
 import { TooltipProvider } from "./components/ui/tooltip";
 
@@ -27,6 +28,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const toast = useToast();
+  const { t } = useI18n();
 
   const downloads = useDownloads();
   const { settings, error: settingsError, update: updateSettings } = useSettings();
@@ -58,8 +60,8 @@ export default function App() {
       engineErrorRef.current = true;
       toast.push({
         type: "error",
-        title: "The media engine needs attention",
-        message: "Open Settings to refresh the media engine and continue.",
+        title: t("settings.engineAttention"),
+        message: t("settings.engineAttentionMessage"),
       });
     }
     if (state === "ready") engineErrorRef.current = false;
@@ -241,9 +243,11 @@ export default function App() {
 
             <footer className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t border-fog/[0.07] py-4 text-[10px] text-mute/50">
               <span className="truncate">
-                Saves to {settings?.downloadDir ? truncateMiddle(settings.downloadDir, 62) : "your downloads folder"}
+                {t("app.savesTo", {
+                  path: settings?.downloadDir ? truncateMiddle(settings.downloadDir, 62) : t("app.downloadsFolder"),
+                })}
               </span>
-              <span className="shrink-0">Private by design · everything stays on your device</span>
+              <span className="shrink-0">{t("app.private")}</span>
             </footer>
           </div>
         </main>

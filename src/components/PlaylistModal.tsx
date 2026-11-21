@@ -1,15 +1,25 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { CheckCheck, ListVideo, Search } from "lucide-react";
+import { ArrowUpToLine, CheckCheck, ListVideo, Search } from "lucide-react";
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { AddDownloadInput, DownloadOptions, MediaEntry, MediaInfo } from "@shared/types";
-import { cn, formatDuration, parseRange, pluralize } from "../lib/utils";
-import { AUDIO_FORMATS, AUDIO_QUALITIES, COMPRESSION_OPTIONS, CONTAINERS, QUALITY_OPTIONS, optionsSummary } from "../lib/options";
+import { useI18n } from "../lib/i18n/LanguageContext";
+import { cn, formatDuration, parseRange } from "../lib/utils";
+import {
+  AUDIO_FORMATS,
+  AUDIO_QUALITIES,
+  COMPRESSION_OPTIONS,
+  CONTAINERS,
+  QUALITY_OPTIONS,
+  compressionLabel,
+  optionsSummary,
+} from "../lib/options";
 import { AnimatedDownload } from "./icons/Animated";
 import { Button } from "./ui/button";
 import { Checkbox } from "./ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "./ui/dialog";
 import { Segmented } from "./ui/segmented";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Switch } from "./ui/switch";
 
 interface PlaylistModalProps {
   open: boolean;
@@ -19,14 +29,16 @@ interface PlaylistModalProps {
   /** Omitted in Quick mode, where the batch preset comes straight from Settings. */
   onOptionsChange?: (patch: Partial<DownloadOptions>) => void;
   onClose: () => void;
-  onQueue: (inputs: AddDownloadInput[]) => Promise<void>;
+  onQueue: (inputs: AddDownloadInput[], prioritize: boolean) => Promise<void>;
 }
 
 export function PlaylistModal({ open, media, options, adding, onOptionsChange, onClose, onQueue }: PlaylistModalProps) {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [range, setRange] = useState("");
   const [rangeError, setRangeError] = useState(false);
+  const [prioritize, setPrioritize] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -34,6 +46,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
       setQuery("");
       setRange("");
       setRangeError(false);
+      setPrioritize(false);
     }
   }, [open, media]);
 
@@ -90,7 +103,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
       options,
       playlistTitle: media.title,
     }));
-    await onQueue(inputs);
+    await onQueue(inputs, prioritize);
   };
 
   const patch = onOptionsChange;
@@ -101,12 +114,12 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
         <header className="flex items-start justify-between gap-4 px-6 pb-4 pt-6">
           <div className="min-w-0">
             <p className="text-[9.5px] font-semibold uppercase tracking-[0.18em] text-sky-ink/80">
-              Playlist · {pluralize(media.entries.length, "video")}
+              {t("playlist.eyebrow", { count: media.entries.length })}
             </p>
             <DialogTitle className="mt-1.5 line-clamp-1 font-display text-[19px] font-bold tracking-[-0.02em] text-mist">
               {media.title}
             </DialogTitle>
-            <DialogDescription className="sr-only">Choose which videos to download.</DialogDescription>
+            <DialogDescription className="sr-only">{t("playlist.choose")}</DialogDescription>
           </div>
         </header>
 
@@ -116,23 +129,24 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search playlist"
+              placeholder={t("playlist.search")}
+              aria-label={t("playlist.search")}
               className="h-9 w-full rounded-full bg-fog/[0.05] pl-9 pr-3 text-[11.5px] text-mist/85 outline-none placeholder:text-mute/50 focus:bg-fog/[0.08] focus:ring-1 focus:ring-sky/45"
             />
           </div>
           <div className="flex items-center gap-0.5">
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set(media.entries.map((entry) => entry.id)))}>
-              <CheckCheck className="size-3.5" /> All
+              <CheckCheck className="size-3.5" /> {t("common.all")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())}>
-              None
+              {t("common.none")}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setSelected(new Set(media.entries.filter((entry) => !selected.has(entry.id)).map((entry) => entry.id)))}
             >
-              Invert
+              {t("playlist.invert")}
             </Button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -149,14 +163,15 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
                 }
               }}
               placeholder="1-10, 15"
+              aria-label={t("playlist.rangeTitle")}
               className={cn(
                 "h-9 w-[96px] rounded-full bg-fog/[0.05] px-3 text-[11px] text-mist/85 outline-none placeholder:text-mute/50 focus:bg-fog/[0.08]",
                 rangeError ? "ring-1 ring-danger/60" : "focus:ring-1 focus:ring-sky/45",
               )}
-              title="Select a range, e.g. 1-10, 15, 20-25"
+              title={t("playlist.rangeTitle")}
             />
             <Button size="sm" variant="secondary" onClick={applyRange}>
-              Range
+              {t("playlist.range")}
             </Button>
           </div>
         </div>
@@ -165,7 +180,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
           {entries.length === 0 ? (
             <div className="grid place-items-center py-16 text-center text-[12px] text-mute">
               <Search className="mb-2 size-6 text-mute/30" />
-              No videos match “{query}”.
+              {t("playlist.noMatch", { query })}
             </div>
           ) : (
             <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
@@ -204,8 +219,8 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
                 size="sm"
                 value={options.kind}
                 options={[
-                  { id: "video", label: "Video" },
-                  { id: "audio", label: "Audio" },
+                  { id: "video", label: t("common.video") },
+                  { id: "audio", label: t("common.audio") },
                 ]}
                 onChange={(kind) => patch({ kind })}
               />
@@ -213,20 +228,20 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
               {options.kind === "video" ? (
                 <>
                   <Select value={options.quality} onValueChange={(quality) => patch({ quality: quality as DownloadOptions["quality"] })}>
-                    <SelectTrigger className="h-9 rounded-xl" aria-label="Batch resolution">
+                    <SelectTrigger className="h-9 rounded-xl" aria-label={t("options.resolution")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {QUALITY_OPTIONS.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.label}
+                          {item.id === "best" ? t("options.best") : item.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
 
                   <Select value={options.container} onValueChange={(container) => patch({ container: container as DownloadOptions["container"] })}>
-                    <SelectTrigger className="h-9 rounded-xl" aria-label="Batch container">
+                    <SelectTrigger className="h-9 rounded-xl" aria-label={t("options.container")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -239,13 +254,13 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
                   </Select>
 
                   <Select value={options.compression} onValueChange={(compression) => patch({ compression: compression as DownloadOptions["compression"] })}>
-                    <SelectTrigger className="h-9 rounded-xl" aria-label="Batch compression">
+                    <SelectTrigger className="h-9 rounded-xl" aria-label={t("options.compression")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {COMPRESSION_OPTIONS.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.label}
+                          {compressionLabel(item.id, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -254,7 +269,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
               ) : (
                 <>
                   <Select value={options.audioFormat} onValueChange={(audioFormat) => patch({ audioFormat: audioFormat as DownloadOptions["audioFormat"] })}>
-                    <SelectTrigger className="h-9 rounded-xl" aria-label="Batch audio format">
+                    <SelectTrigger className="h-9 rounded-xl" aria-label={t("options.audioFormat")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -267,7 +282,7 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
                   </Select>
 
                   <Select value={options.audioQuality} onValueChange={(audioQuality) => patch({ audioQuality: audioQuality as DownloadOptions["audioQuality"] })}>
-                    <SelectTrigger className="h-9 rounded-xl" aria-label="Batch audio quality">
+                    <SelectTrigger className="h-9 rounded-xl" aria-label={t("options.bitrate")}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -283,21 +298,28 @@ export function PlaylistModal({ open, media, options, adding, onOptionsChange, o
             </div>
           ) : (
             <p className="mb-3 text-[10.5px] text-mute/60">
-              Using your Quick preset · <span className="text-mute/80">{optionsSummary(options)}</span>
+              {t("playlist.quickPreset", { summary: optionsSummary(options, t) })}
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-[10.5px] text-mute">
-              <span className="font-semibold text-mist/85">{selectedEntries.length}</span> of {media.entries.length} selected
+              <span className="font-semibold text-mist/85">{selectedEntries.length}</span> / {media.entries.length}
             </p>
-            <div className="flex items-center gap-2">
+
+            <label className="flex cursor-pointer items-center gap-2" title={t("playlist.prioritizeHint")}>
+              <ArrowUpToLine className="size-3.5 text-mute/55" />
+              <span className="text-[10px] text-mute/70">{t("playlist.prioritize")}</span>
+              <Switch checked={prioritize} onCheckedChange={setPrioritize} aria-label={t("playlist.prioritizeHint")} />
+            </label>
+
+            <div className="ml-auto flex items-center gap-2">
               <Button size="md" variant="ghost" onClick={onClose}>
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button size="md" loading={adding} disabled={!selectedEntries.length} onClick={() => void queue()}>
                 {adding ? null : <AnimatedDownload className="size-4" />}
-                Queue
+                {t("playlist.queue")}
               </Button>
             </div>
           </div>
@@ -318,6 +340,7 @@ const PlaylistRow = memo(function PlaylistRow({
   onToggle: (id: string) => void;
   fallbackChannel?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="button"
@@ -348,7 +371,7 @@ const PlaylistRow = memo(function PlaylistRow({
       <span className="min-w-0 flex-1">
         <span className={cn("block truncate text-[11.5px] font-medium", checked ? "text-mist/90" : "text-mute")}>{entry.title}</span>
         <span className="mt-0.5 block truncate text-[9.5px] text-mute/50">
-          {entry.channel ?? fallbackChannel ?? "Unknown"} {entry.duration ? `· ${formatDuration(entry.duration)}` : ""}
+          {entry.channel ?? fallbackChannel ?? t("common.unknown")} {entry.duration ? `· ${formatDuration(entry.duration)}` : ""}
         </span>
       </span>
     </div>

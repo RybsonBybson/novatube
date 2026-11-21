@@ -3,6 +3,7 @@ import { AlertCircle, CheckCircle2, Info, X } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ToastEvent, ToastType } from "@shared/types";
 import { api } from "../lib/api";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn } from "../lib/utils";
 
 interface ToastInput {
@@ -35,6 +36,7 @@ const TOAST_STYLE: Record<ToastType, { icon: typeof Info; tile: string; iconClas
 };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const [toasts, setToasts] = useState<ToastEvent[]>([]);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -106,7 +108,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   <button
                     type="button"
                     onClick={() => dismiss(toast.id)}
-                    aria-label="Dismiss notification"
+                    aria-label={t("toast.dismiss")}
                     className="grid size-5 shrink-0 place-items-center rounded-full text-mute/50 transition-colors hover:bg-fog/[0.07] hover:text-mist"
                   >
                     <X className="size-3" />

@@ -177,8 +177,12 @@ impl DownloadQueue {
         let item = self.create_item(input);
         {
             let mut inner = self.lock();
+            // A single video is a deliberate, one-off request: it goes ahead of
+            // every waiting playlist item so it starts as soon as a slot frees
+            // up, instead of queueing behind thousands of videos.
+            let position = pending_position(&inner);
             inner.items.insert(item.id.clone(), item.clone());
-            inner.order.push(item.id.clone());
+            inner.order.insert(position, item.id.clone());
         }
         self.mark_dirty();
         self.emit_update(item.clone(), true);
@@ -187,7 +191,11 @@ impl DownloadQueue {
         Ok(item)
     }
 
-    pub fn add_many(self: &Arc<Self>, inputs: Vec<AddDownloadInput>) -> Result<Vec<DownloadItem>, String> {
+    pub fn add_many(
+        self: &Arc<Self>,
+        inputs: Vec<AddDownloadInput>,
+        prioritize: bool,
+    ) -> Result<Vec<DownloadItem>, String> {
         if inputs.is_empty() {
             return Err("No videos selected.".into());
         }
@@ -205,10 +213,18 @@ impl DownloadQueue {
 
         {
             let mut inner = self.lock();
+            let position = if prioritize {
+                pending_position(&inner)
+            } else {
+                inner.order.len()
+            };
+            let ids: Vec<String> = created.iter().map(|item| item.id.clone()).collect();
             for item in &created {
                 inner.items.insert(item.id.clone(), item.clone());
-                inner.order.push(item.id.clone());
             }
+            // Playlist order (1, 2, 3, …) is preserved inside the batch either
+            // way; only the starting point changes when it is prioritized.
+            inner.order.splice(position..position, ids);
         }
         // One snapshot instead of N individual events keeps huge batches cheap.
         self.mark_dirty();
@@ -355,6 +371,46 @@ impl DownloadQueue {
         self.mark_dirty();
         let _ = self.app.emit("downloads:removed", id);
         self.emit_snapshot();
+    }
+
+    /// Jump one item in front of every waiting item. Queued jobs keep their
+    /// progress; paused/failed/cancelled jobs are requeued so the action is
+    /// immediately useful. Running and finished jobs are left alone.
+    pub fn move_to_top(self: &Arc<Self>, id: &str) {
+        {
+            let mut inner = self.lock();
+            let Some(status) = inner.items.get(id).map(|item| item.status.clone()) else {
+                return;
+            };
+            if ACTIVE_STATUSES.contains(&status.as_str()) || status == "completed" {
+                return;
+            }
+            if status != "queued" {
+                if let Some(item) = inner.items.get_mut(id) {
+                    item.status = "queued".into();
+                    item.error = None;
+                    item.notice = None;
+                    item.speed = None;
+                    item.speed_bytes = None;
+                    item.eta = None;
+                    item.stage_detail = None;
+                    item.resume_stage = None;
+                    if status == "error" || status == "cancelled" {
+                        item.progress = 0.0;
+                        item.downloaded_bytes = None;
+                        item.total_bytes = None;
+                    }
+                }
+            }
+            inner.order.retain(|item_id| item_id != id);
+            let position = pending_position(&inner);
+            inner.order.insert(position, id.to_string());
+        }
+        // The queue order is meaningful state, so write it out right away.
+        self.mark_dirty();
+        self.persist_now();
+        self.emit_snapshot();
+        self.schedule();
     }
 
     pub fn clear_finished(&self) {
@@ -1674,6 +1730,19 @@ fn preset_args(preset: &str) -> (Vec<&'static str>, Vec<&'static str>) {
 }
 
 #[allow(dead_code)]
-fn active_status(status: &str) -> bool {
-    ACTIVE_STATUSES.contains(&status)
+/// Index of the first waiting item, i.e. the front of the pending queue.
+/// Finished items may sit at the top of a restored queue, so appending at the
+/// end is not the same as "next to run".
+fn pending_position(inner: &QueueInner) -> usize {
+    inner
+        .order
+        .iter()
+        .position(|id| {
+            inner
+                .items
+                .get(id)
+                .map(|item| item.status == "queued")
+                .unwrap_or(false)
+        })
+        .unwrap_or(inner.order.len())
 }

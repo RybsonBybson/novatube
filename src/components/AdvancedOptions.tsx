@@ -1,6 +1,17 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Captions, ImageIcon, ShieldCheck } from "lucide-react";
+import {
+  AudioLines,
+  Captions,
+  Film,
+  ImageIcon,
+  Minimize2,
+  MonitorPlay,
+  Music2,
+  Package,
+  ShieldCheck,
+} from "lucide-react";
 import type { DownloadOptions, MediaInfo } from "@shared/types";
+import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn } from "../lib/utils";
 import {
   AUDIO_FORMATS,
@@ -8,13 +19,18 @@ import {
   COMPRESSION_OPTIONS,
   CONTAINERS,
   QUALITY_OPTIONS,
-  SUBTITLE_MODES,
+  audioHint,
+  compressionDescription,
+  compressionLabel,
+  containerHint,
   hasHighFrameRate,
   isQualityAvailable,
   maxQualityLabel,
+  qualityShort,
+  subtitleChoices,
 } from "../lib/options";
-import { Check } from "lucide-react";
 import { Chip } from "./ui/button";
+import { OptionCard, OptionRow } from "./ui/option-row";
 import { Segmented } from "./ui/segmented";
 import { Switch } from "./ui/switch";
 
@@ -26,38 +42,36 @@ interface AdvancedOptionsProps {
 }
 
 export function AdvancedOptions({ options, onChange, media, className }: AdvancedOptionsProps) {
+  const { t } = useI18n();
   const heights = media?.heights ?? [];
   const fpsValues = (media?.formats ?? []).map((format) => format.fps ?? 0);
 
   return (
-    <div className={cn("space-y-5", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Label>Format</Label>
+    <OptionCard className={cn(className)}>
+      <OptionRow icon={Film} title={t("options.kindTitle")} description={t("options.kindDesc")}>
         <Segmented
           layoutId="kind-toggle"
           size="sm"
           value={options.kind}
           options={[
-            { id: "video", label: "Video" },
-            { id: "audio", label: "Audio" },
+            { id: "video", label: t("common.video") },
+            { id: "audio", label: t("common.audio") },
           ]}
           onChange={(kind) => onChange({ kind })}
         />
-      </div>
+      </OptionRow>
 
       <AnimatePresence mode="wait" initial={false}>
         {options.kind === "video" ? (
           <motion.div
             key="video"
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.16 }}
-            className="space-y-5"
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
           >
-            <div>
-              <Label>Resolution</Label>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            <OptionRow icon={MonitorPlay} title={t("options.qualityTitle")} description={t("options.qualityDesc")}>
+              <div className="flex flex-wrap justify-end gap-1.5">
                 {QUALITY_OPTIONS.map((option) => {
                   const available = isQualityAvailable(option.id, heights);
                   const highFps = hasHighFrameRate(heights, fpsValues, option.id);
@@ -67,107 +81,135 @@ export function AdvancedOptions({ options, onChange, media, className }: Advance
                       active={options.quality === option.id}
                       disabled={!available}
                       onClick={() => onChange({ quality: option.id })}
-                      title={available ? option.label : `Not available (max ${maxQualityLabel(heights)})`}
+                      title={
+                        available
+                          ? option.id === "best"
+                            ? t("options.best")
+                            : option.label
+                          : t("options.notAvailable", { quality: maxQualityLabel(heights) })
+                      }
                     >
-                      {option.id === "best" ? "Best" : option.short}
+                      {qualityShort(option.id, t)}
                       {highFps ? (
-                        <span className={cn("text-[8.5px]", options.quality === option.id ? "text-on-sky/60" : "text-mute/50")}>60</span>
+                        <span className={cn("text-[8.5px]", options.quality === option.id ? "text-on-sky/60" : "text-mute/50")}>
+                          60
+                        </span>
                       ) : null}
                     </Chip>
                   );
                 })}
               </div>
-            </div>
+            </OptionRow>
 
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Label>Container</Label>
+            <OptionRow icon={Package} title={t("options.containerTitle")} description={t("options.containerDesc")}>
               <Segmented
                 layoutId="container-toggle"
                 size="sm"
                 value={options.container}
-                options={CONTAINERS}
+                options={CONTAINERS.map((container) => ({
+                  id: container.id,
+                  label: container.label,
+                  hint: containerHint(container.id, t),
+                }))}
                 onChange={(container) => onChange({ container })}
               />
-            </div>
+            </OptionRow>
 
-            <div>
-              <Label>Compression</Label>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            <OptionRow icon={Minimize2} title={t("options.compressionTitle")} description={t("options.compressionDesc")}>
+              <div className="flex flex-wrap justify-end gap-1.5">
                 {COMPRESSION_OPTIONS.map((preset) => {
                   const active = options.compression === preset.id;
                   return (
                     <button
                       key={preset.id}
                       type="button"
-                      title={preset.description}
+                      title={compressionDescription(preset.id, t)}
                       onClick={() => onChange({ compression: preset.id })}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sky/45",
-                        active ? "bg-orange/20 text-orange-ink" : "bg-fog/[0.045] text-mute hover:bg-fog/[0.08] hover:text-mist/85",
+                        active
+                          ? "bg-orange/20 text-orange-ink"
+                          : "bg-fog/[0.045] text-mute hover:bg-fog/[0.08] hover:text-mist/85",
                       )}
                     >
-                      {active ? <Check className="size-3" strokeWidth={3} /> : null}
-                      {preset.label}
+                      {compressionLabel(preset.id, t)}
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </OptionRow>
           </motion.div>
         ) : (
           <motion.div
             key="audio"
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.16 }}
-            className="space-y-5"
+            exit={{ opacity: 0, y: -5 }}
+            transition={{ duration: 0.15 }}
           >
-            <div>
-              <Label>Audio format</Label>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            <OptionRow icon={Music2} title={t("options.audioFormatTitle")} description={t("options.audioFormatDesc")}>
+              <div className="flex flex-wrap justify-end gap-1.5">
                 {AUDIO_FORMATS.map((format) => (
-                  <Chip key={format.id} active={options.audioFormat === format.id} onClick={() => onChange({ audioFormat: format.id })}>
+                  <Chip
+                    key={format.id}
+                    active={options.audioFormat === format.id}
+                    title={audioHint(format.id, t)}
+                    onClick={() => onChange({ audioFormat: format.id })}
+                  >
                     {format.label}
                   </Chip>
                 ))}
               </div>
-            </div>
-            <div className={cn("transition-opacity", options.audioFormat !== "mp3" && "pointer-events-none opacity-35")}>
-              <Label>Bitrate</Label>
-              <div className="mt-2 flex flex-wrap gap-1.5">
+            </OptionRow>
+
+            <OptionRow icon={AudioLines} title={t("options.bitrateTitle")} description={t("options.bitrateDesc")}>
+              <div
+                className={cn(
+                  "flex flex-wrap justify-end gap-1.5 transition-opacity",
+                  options.audioFormat !== "mp3" && "pointer-events-none opacity-35",
+                )}
+              >
                 {AUDIO_QUALITIES.map((item) => (
                   <Chip key={item.id} active={options.audioQuality === item.id} onClick={() => onChange({ audioQuality: item.id })}>
                     {item.label}
                   </Chip>
                 ))}
               </div>
-            </div>
+            </OptionRow>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1">
-        <label className="flex cursor-pointer items-center gap-2.5">
-          <ImageIcon className="size-3.5 text-mute/60" />
-          <span className="text-[10.5px] text-mute">Cover art</span>
-          <Switch checked={options.embedThumbnail} onCheckedChange={(embedThumbnail) => onChange({ embedThumbnail })} aria-label="Embed cover art" />
-        </label>
-        <label className="flex cursor-pointer items-center gap-2.5">
-          <ShieldCheck className="size-3.5 text-mute/60" />
-          <span className="text-[10.5px] text-mute">SponsorBlock</span>
-          <Switch checked={options.sponsorBlock} onCheckedChange={(sponsorBlock) => onChange({ sponsorBlock })} aria-label="SponsorBlock" />
-        </label>
-        <div className={cn("flex items-center gap-2.5 transition-opacity", options.kind === "audio" && "pointer-events-none opacity-35")}>
-          <Captions className="size-3.5 text-mute/60" />
-          <span className="text-[10.5px] text-mute">Subtitles</span>
-          <Segmented layoutId="subtitle-toggle" size="sm" value={options.subtitles} options={SUBTITLE_MODES} onChange={(subtitles) => onChange({ subtitles })} />
-        </div>
-      </div>
-    </div>
-  );
-}
+      <OptionRow icon={ImageIcon} title={t("options.coverArt")} description={t("options.coverArtDesc")}>
+        <Switch
+          checked={options.embedThumbnail}
+          onCheckedChange={(embedThumbnail) => onChange({ embedThumbnail })}
+          aria-label={t("options.coverArt")}
+        />
+      </OptionRow>
 
-function Label({ children }: { children: React.ReactNode }) {
-  return <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-mute/55">{children}</span>;
+      <OptionRow icon={ShieldCheck} title={t("options.sponsorBlock")} description={t("options.sponsorBlockDesc")}>
+        <Switch
+          checked={options.sponsorBlock}
+          onCheckedChange={(sponsorBlock) => onChange({ sponsorBlock })}
+          aria-label={t("options.sponsorBlock")}
+        />
+      </OptionRow>
+
+      <OptionRow
+        icon={Captions}
+        title={t("options.subtitles")}
+        description={t("options.subtitlesDesc")}
+        className={cn(options.kind === "audio" && "pointer-events-none opacity-40")}
+      >
+        <Segmented
+          layoutId="subtitle-toggle"
+          size="sm"
+          value={options.subtitles}
+          options={subtitleChoices(t)}
+          onChange={(subtitles) => onChange({ subtitles })}
+        />
+      </OptionRow>
+    </OptionCard>
+  );
 }

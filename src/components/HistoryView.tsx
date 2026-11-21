@@ -5,7 +5,8 @@ import type { HistoryEntry } from "@shared/types";
 import type { DownloadsApi } from "../hooks/useDownloads";
 import { useIncremental } from "../hooks/useIncremental";
 import { api } from "../lib/api";
-import { formatBytes, formatDate, pluralize, timeAgo } from "../lib/utils";
+import { useI18n } from "../lib/i18n/LanguageContext";
+import { formatBytes, formatDate, timeAgo } from "../lib/utils";
 import { useToast } from "./Toasts";
 import { Spinner } from "./icons/Animated";
 import { Button, IconButton } from "./ui/button";
@@ -25,17 +26,12 @@ interface HistoryViewProps {
 type Filter = "all" | "video" | "audio";
 type Sort = "newest" | "oldest" | "largest";
 
-const SORT_LABELS: { id: Sort; label: string }[] = [
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
-  { id: "largest", label: "Largest" },
-];
-
 function parentDir(filePath: string): string {
   return filePath.replace(/[\\/][^\\/]+$/, "") || filePath;
 }
 
 export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, onRemove, onClear }: HistoryViewProps) {
+  const { t, language } = useI18n();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [sort, setSort] = useState<Sort>("newest");
@@ -71,7 +67,11 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
     try {
       await api.app.openPath(parentDir(entry.filePath));
     } catch (error) {
-      toast.push({ type: "error", title: "Could not open folder", message: error instanceof Error ? error.message : String(error) });
+      toast.push({
+        type: "error",
+        title: t("library.openFolderFailed"),
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -79,7 +79,11 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
     try {
       await api.app.openPath(entry.filePath);
     } catch (error) {
-      toast.push({ type: "error", title: "Could not open file", message: error instanceof Error ? error.message : String(error) });
+      toast.push({
+        type: "error",
+        title: t("library.openFailed"),
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -93,15 +97,19 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
       options: entry.options,
       playlistTitle: entry.playlistTitle,
     });
-    if (item) toast.push({ type: "success", title: "Queued again", message: `${entry.title} · ${entry.formatLabel}` });
+    if (item) toast.push({ type: "success", title: t("library.queuedAgain"), message: `${entry.title} · ${item.formatLabel}` });
   };
 
   const removeEntry = async (entry: HistoryEntry) => {
     try {
       await onRemove(entry.id);
-      toast.push({ type: "info", title: "Removed from library", message: "The file on disk was not deleted." });
+      toast.push({ type: "info", title: t("library.removedTitle"), message: t("library.removedMessage") });
     } catch (error) {
-      toast.push({ type: "error", title: "Could not remove entry", message: error instanceof Error ? error.message : String(error) });
+      toast.push({
+        type: "error",
+        title: t("library.removeFailed"),
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -109,20 +117,35 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
     try {
       await onClear();
       setConfirmClear(false);
-      toast.push({ type: "info", title: "Library cleared", message: "Files stay on disk." });
+      toast.push({ type: "info", title: t("library.clearedTitle"), message: t("library.clearedMessage") });
     } catch (error) {
-      toast.push({ type: "error", title: "Could not clear library", message: error instanceof Error ? error.message : String(error) });
+      toast.push({
+        type: "error",
+        title: t("library.clearFailed"),
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   };
+
+  const sortOptions: { id: Sort; label: string }[] = [
+    { id: "newest", label: t("library.newest") },
+    { id: "oldest", label: t("library.oldest") },
+    { id: "largest", label: t("library.largest") },
+  ];
 
   return (
     <div className="relative min-h-full">
       <div className="relative pb-12 pt-10">
         <div>
-          <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">Collection</p>
-          <h1 className="mt-3 font-display text-[40px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">Library</h1>
+          <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">{t("library.eyebrow")}</p>
+          <h1 className="mt-3 font-display text-[40px] font-bold leading-[1.05] tracking-[-0.04em] text-mist">{t("library.title")}</h1>
           <p className="mt-2 text-[10.5px] text-mute/45">
-            {pluralize(entries.length, "item")} · {videoCount} video · {audioCount} audio · {formatBytes(totalSize)}
+            {t("library.summary", {
+              items: entries.length,
+              videos: videoCount,
+              audios: audioCount,
+              size: formatBytes(totalSize),
+            })}
           </p>
         </div>
 
@@ -130,7 +153,8 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search your library"
+            placeholder={t("library.search")}
+            aria-label={t("library.search")}
             icon={<Search className="size-3.5" />}
             className="h-10 min-w-[220px] flex-1"
           />
@@ -140,19 +164,19 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
             size="sm"
             value={filter}
             options={[
-              { id: "all", label: "All" },
-              { id: "video", label: "Video" },
-              { id: "audio", label: "Audio" },
+              { id: "all", label: t("common.all") },
+              { id: "video", label: t("common.video") },
+              { id: "audio", label: t("common.audio") },
             ]}
             onChange={setFilter}
           />
 
           <Select value={sort} onValueChange={(value) => setSort(value as Sort)}>
-            <SelectTrigger className="h-9" aria-label="Sort library">
+            <SelectTrigger className="h-9" aria-label={t("library.sort")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
-              {SORT_LABELS.map((option) => (
+              {sortOptions.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   {option.label}
                 </SelectItem>
@@ -161,7 +185,7 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           </Select>
 
           {entries.length > 0 ? (
-            <IconButton label="Clear library" tone="danger" onClick={() => setConfirmClear(true)}>
+            <IconButton label={t("library.clearTitle")} tone="danger" onClick={() => setConfirmClear(true)}>
               <Trash2 className="size-3.5" />
             </IconButton>
           ) : null}
@@ -170,19 +194,33 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
         <div className="mt-5 border-t border-fog/[0.07]">
           <AnimatePresence initial={false}>
             {visible.map((entry) => (
-              <HistoryRow key={entry.id} entry={entry} onOpenFile={openFile} onOpenFolder={openFolder} onRedownload={redownload} onRemove={removeEntry} />
+              <HistoryRow
+                key={entry.id}
+                entry={entry}
+                locale={language}
+                onOpenFile={openFile}
+                onOpenFolder={openFolder}
+                onRedownload={redownload}
+                onRemove={removeEntry}
+              />
             ))}
           </AnimatePresence>
           {hasMore ? <div ref={sentinelRef} className="h-8" aria-hidden /> : null}
 
           {!filtered.length && loaded ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass flex flex-col items-center justify-center rounded-[24px] px-6 py-16 text-center">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="glass flex flex-col items-center justify-center rounded-[24px] px-6 py-16 text-center"
+            >
               <div className="grid size-12 place-items-center rounded-2xl bg-fog/[0.04]">
                 <Film className="size-5 text-mute/30" strokeWidth={1.6} />
               </div>
-              <p className="mt-4 font-display text-[13px] font-semibold text-mist/60">{entries.length ? "No matches" : "Nothing saved yet"}</p>
+              <p className="mt-4 font-display text-[13px] font-semibold text-mist/60">
+                {entries.length ? t("library.noMatches") : t("library.empty")}
+              </p>
               <p className="mt-1 max-w-[260px] text-[11px] leading-relaxed text-mute/45">
-                {entries.length ? "Try a different search or filter." : "Finished downloads show up here automatically."}
+                {entries.length ? t("library.tryDifferent") : t("library.finishedHint")}
               </p>
             </motion.div>
           ) : null}
@@ -190,7 +228,7 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           {!loaded ? (
             <div className="flex items-center justify-center gap-2 py-14 text-[11px] text-mute/40">
               <Spinner className="size-3.5 text-sky-ink" />
-              Loading library
+              {t("library.loading")}
             </div>
           ) : null}
         </div>
@@ -201,16 +239,14 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
           <div className="grid size-10 place-items-center rounded-2xl bg-danger/12">
             <AlertCircle className="size-4.5 text-danger" />
           </div>
-          <DialogTitle className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-mist">Clear the library?</DialogTitle>
-          <DialogDescription className="mt-1.5 text-[11px] leading-relaxed text-mute/55">
-            History entries are removed. Files on disk are untouched.
-          </DialogDescription>
+          <DialogTitle className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-mist">{t("library.clearTitle")}</DialogTitle>
+          <DialogDescription className="mt-1.5 text-[11px] leading-relaxed text-mute/55">{t("library.clearBody")}</DialogDescription>
           <div className="mt-6 flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => setConfirmClear(false)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button size="sm" variant="danger" onClick={() => void clearAll()}>
-              Clear
+              {t("common.clear")}
             </Button>
           </div>
         </DialogContent>
@@ -221,17 +257,20 @@ export const HistoryView = memo(function HistoryView({ entries, loaded, onAdd, o
 
 function HistoryRow({
   entry,
+  locale,
   onOpenFile,
   onOpenFolder,
   onRedownload,
   onRemove,
 }: {
   entry: HistoryEntry;
+  locale: string;
   onOpenFile: (entry: HistoryEntry) => void;
   onOpenFolder: (entry: HistoryEntry) => void;
   onRedownload: (entry: HistoryEntry) => void;
   onRemove: (entry: HistoryEntry) => void;
 }) {
+  const { t } = useI18n();
   const isAudio = entry.options.kind === "audio";
   return (
     <motion.div
@@ -260,21 +299,21 @@ function HistoryRow({
           <span className="text-mute/20">·</span>
           <span className="tabular-nums">{formatBytes(entry.fileSize)}</span>
           <span className="text-mute/20">·</span>
-          <span title={formatDate(entry.completedAt)}>{timeAgo(entry.completedAt)}</span>
+          <span title={formatDate(entry.completedAt)}>{timeAgo(entry.completedAt, locale)}</span>
         </p>
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
-        <IconButton label="Open file" tone="accent" onClick={() => onOpenFile(entry)}>
+        <IconButton label={t("card.openFile")} tone="accent" onClick={() => onOpenFile(entry)}>
           <ExternalLink className="size-3.5" />
         </IconButton>
-        <IconButton label="Show in folder" onClick={() => onOpenFolder(entry)}>
+        <IconButton label={t("card.showFolder")} onClick={() => onOpenFolder(entry)}>
           <FolderOpen className="size-3.5" />
         </IconButton>
-        <IconButton label="Download again" tone="sky" onClick={() => onRedownload(entry)}>
+        <IconButton label={t("library.downloadAgain")} tone="sky" onClick={() => onRedownload(entry)}>
           <ArrowDownToLine className="size-3.5" />
         </IconButton>
-        <IconButton label="Remove from library" tone="danger" onClick={() => onRemove(entry)}>
+        <IconButton label={t("card.remove")} tone="danger" onClick={() => onRemove(entry)}>
           <X className="size-3.5" />
         </IconButton>
       </div>

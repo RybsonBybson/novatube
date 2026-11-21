@@ -1,14 +1,27 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowRight, ArrowUpRight, ClipboardPaste, Clock3, Link2, Settings2, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  ArrowUpRight,
+  ClipboardPaste,
+  Clock3,
+  Link2,
+  Search,
+  Settings2,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AppSettings, BinariesStatus, DownloadOptions, MediaInfo } from "@shared/types";
 import type { DownloadsApi } from "../hooks/useDownloads";
-import { api } from "../lib/api";
-import { estimateQueueEta, formatEta } from "../lib/eta";
-import { optionsFromSettings, optionsSummary } from "../lib/options";
-import { cn, pluralize } from "../lib/utils";
-import { extractUrl, isSupportedUrl, normalizeInput } from "../lib/url";
 import { useIncremental } from "../hooks/useIncremental";
+import { useQueueEta } from "../hooks/useQueueEta";
+import { api } from "../lib/api";
+import { formatEta } from "../lib/eta";
+import { useI18n } from "../lib/i18n/LanguageContext";
+import { optionsFromSettings, optionsSummary } from "../lib/options";
+import { cn } from "../lib/utils";
+import { extractUrl, isSupportedUrl, normalizeInput } from "../lib/url";
 import { DownloadCard, MetadataSkeleton, QueueEmpty } from "./DownloadCard";
 import { MediaPreview } from "./MediaPreview";
 import { PlaylistModal } from "./PlaylistModal";
@@ -53,8 +66,10 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
   const [pasteLoading, setPasteLoading] = useState(false);
   const [playlistOpen, setPlaylistOpen] = useState(false);
   const [filter, setFilter] = useState<QueueFilter>("all");
+  const [query, setQuery] = useState("");
   const [confirmClear, setConfirmClear] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const { t } = useI18n();
   const toast = useToast();
   const hydrated = useRef(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -77,11 +92,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
     async (input: string, quick: boolean) => {
       const normalized = normalizeInput(input);
       if (!isSupportedUrl(normalized)) {
-        toast.push({
-          type: "error",
-          title: "Unsupported link",
-          message: "Paste a valid http(s) media URL — YouTube, Shorts, live or playlist.",
-        });
+        toast.push({ type: "error", title: t("studio.unsupportedTitle"), message: t("studio.unsupportedMessage") });
         return;
       }
 
@@ -107,7 +118,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
           });
           if (item) {
             setUrl("");
-            toast.push({ type: "success", title: "Queued", message: `${info.title} · ${item.formatLabel}` });
+            toast.push({ type: "success", title: t("studio.queued"), message: `${info.title} · ${item.formatLabel}` });
           }
           return;
         }
@@ -121,12 +132,12 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
       } catch (reason) {
         const message = reason instanceof Error ? reason.message : String(reason);
         setError(message);
-        toast.push({ type: "error", title: "Could not read that link", message });
+        toast.push({ type: "error", title: t("studio.couldNotRead"), message });
       } finally {
         setLoadingMeta(false);
       }
     },
-    [downloads, quickOptions, toast],
+    [downloads, quickOptions, t, toast],
   );
 
   const handlePaste = useCallback(async () => {
@@ -135,17 +146,21 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
       const text = await api.clipboard.readText();
       const found = extractUrl(text);
       if (!found) {
-        toast.push({ type: "error", title: "Clipboard is empty", message: "Copy a video or playlist link and try again." });
+        toast.push({ type: "error", title: t("studio.clipboardEmptyTitle"), message: t("studio.clipboardEmptyMessage") });
         return;
       }
       setUrl(found);
       await process(found, mode === "quick");
     } catch (reason) {
-      toast.push({ type: "error", title: "Clipboard unavailable", message: reason instanceof Error ? reason.message : String(reason) });
+      toast.push({
+        type: "error",
+        title: t("studio.clipboardUnavailable"),
+        message: reason instanceof Error ? reason.message : String(reason),
+      });
     } finally {
       setPasteLoading(false);
     }
-  }, [mode, process, toast]);
+  }, [mode, process, t, toast]);
 
   const changeMode = useCallback(
     (next: Mode) => {
@@ -175,22 +190,26 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
     });
     setAdding(false);
     if (item) {
-      toast.push({ type: "success", title: "Queued", message: `${media.title} · ${item.formatLabel}` });
+      toast.push({ type: "success", title: t("studio.queued"), message: `${media.title} · ${item.formatLabel}` });
     }
-  }, [downloads, media, options, toast]);
+  }, [downloads, media, options, t, toast]);
 
   const handleQueuePlaylist = useCallback(
-    async (inputs: Parameters<DownloadsApi["addMany"]>[0]) => {
+    async (inputs: Parameters<DownloadsApi["addMany"]>[0], prioritize?: boolean) => {
       setAdding(true);
-      const queued = await downloads.addMany(inputs);
+      const queued = await downloads.addMany(inputs, prioritize);
       setAdding(false);
       if (queued?.length) {
         setPlaylistOpen(false);
         setUrl("");
-        toast.push({ type: "success", title: `${queued.length} videos queued`, message: "They will download in parallel." });
+        toast.push({
+          type: "success",
+          title: t("studio.videosQueued", { count: queued.length }),
+          message: t("studio.videosQueuedMessage"),
+        });
       }
     },
-    [downloads, toast],
+    [downloads, t, toast],
   );
 
   const patchOptions = useCallback((patch: Partial<DownloadOptions>) => {
@@ -208,24 +227,52 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
   const doneCount = queue.length - activeCount;
 
   const filtered = useMemo(() => {
-    if (filter === "active") return queue.filter((item) => activeStatuses.has(item.status));
-    if (filter === "done") return queue.filter((item) => !activeStatuses.has(item.status));
-    return queue;
-  }, [filter, queue, activeStatuses]);
+    const needle = query.trim().toLowerCase();
+    const searched = needle
+      ? queue.filter(
+          (item) =>
+            item.title.toLowerCase().includes(needle) ||
+            (item.channel ?? "").toLowerCase().includes(needle) ||
+            (item.playlistTitle ?? "").toLowerCase().includes(needle),
+        )
+      : queue;
+    if (filter === "active") return searched.filter((item) => activeStatuses.has(item.status));
+    if (filter === "done") return searched.filter((item) => !activeStatuses.has(item.status));
+    return searched;
+  }, [filter, query, queue, activeStatuses]);
 
   /* Only mount a slice of the queue; the rest loads as the user scrolls. */
-  const { visible: visibleQueue, hasMore: queueHasMore, sentinelRef: queueSentinel, showAll: showWholeQueue, shown: queueShown } = useIncremental(filtered, 40, filter);
+  const {
+    visible: visibleQueue,
+    hasMore: queueHasMore,
+    sentinelRef: queueSentinel,
+    showAll: showWholeQueue,
+    shown: queueShown,
+  } = useIncremental(filtered, 40, `${filter}|${query}`);
 
   const queuedCount = queue.filter((item) => item.status === "queued").length;
   const processingCount = queue.filter((item) => item.status === "processing" || item.status === "compressing").length;
-  const queueEta = useMemo(() => estimateQueueEta(queue), [queue]);
+  const queueEta = useQueueEta(queue, settings?.concurrency ?? 2);
+  const etaLabel = formatEta(queueEta.seconds);
 
   const handleClearAll = useCallback(() => {
     setConfirmClear(false);
     setFilter("all");
+    setQuery("");
     downloads.clearAll();
-    toast.push({ type: "info", title: "Queue cleared", message: "Every job was stopped and removed." });
-  }, [downloads, toast]);
+    toast.push({ type: "info", title: t("queue.clearedTitle"), message: t("queue.clearedMessage") });
+  }, [downloads, t, toast]);
+
+  const handleMoveTop = useCallback(
+    (id: string) => {
+      const item = queue.find((entry) => entry.id === id);
+      downloads.moveToTop(id);
+      if (item) {
+        toast.push({ type: "info", title: t("queue.movedTop"), message: t("queue.moveTopMessage", { title: item.title }) });
+      }
+    },
+    [downloads, queue, t, toast],
+  );
 
   const engine = binaries?.ytDlp;
   const engineWarning = engine?.state === "error" || engine?.state === "missing";
@@ -237,6 +284,15 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
       window.setTimeout(() => previewRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     }
   }, [quick, media]);
+
+  const summary = [
+    runningCount ? t("queue.running", { count: runningCount }) : null,
+    queuedCount ? t("queue.waiting", { count: queuedCount }) : null,
+    processingCount ? t("queue.processing", { count: processingCount }) : null,
+    doneCount ? t("queue.done", { count: doneCount }) : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div
@@ -258,7 +314,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
         const raw = event.dataTransfer.getData("text/uri-list") || event.dataTransfer.getData("text/plain");
         const found = extractUrl(raw);
         if (!found) {
-          toast.push({ type: "error", title: "Not a link", message: "Drop a video, Shorts, live or playlist URL." });
+          toast.push({ type: "error", title: t("studio.notLinkTitle"), message: t("studio.notLinkMessage") });
           return;
         }
         setUrl(found);
@@ -275,8 +331,8 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
           >
             <div className="flex flex-col items-center gap-2 text-center">
               <Link2 className="size-6 text-sky-ink" />
-              <p className="font-display text-[14px] font-semibold text-mist">{quick ? "Drop to download" : "Drop to fetch"}</p>
-              <p className="text-[10.5px] text-mute/55">Video, Shorts, live or playlist</p>
+              <p className="font-display text-[14px] font-semibold text-mist">{quick ? t("studio.dropDownload") : t("studio.dropFetch")}</p>
+              <p className="text-[10.5px] text-mute/55">{t("studio.dropHint")}</p>
             </div>
           </motion.div>
         ) : null}
@@ -284,18 +340,16 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
 
       <div className="grid items-center gap-10 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-16 lg:py-14">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: "easeOut" }}>
-          <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">Media downloader</p>
+          <p className="text-[9.5px] font-semibold uppercase tracking-[0.28em] text-mute/60">{t("studio.eyebrow")}</p>
           <h1 className="mt-5 font-display text-[50px] font-bold leading-[1.02] tracking-[-0.045em] text-mist sm:text-[58px]">
-            Paste it.
+            {t("studio.titleA")}
             <br />
-            <span className="gemini-text">Keep it.</span>
+            <span className="gemini-text">{t("studio.titleB")}</span>
           </h1>
-          <p className="mt-6 max-w-[360px] text-[12.5px] leading-relaxed text-mute/65">
-            Drop a YouTube link and NovaTube saves the video or audio straight to your folder — no ads, no clutter.
-          </p>
+          <p className="mt-6 max-w-[360px] text-[12.5px] leading-relaxed text-mute/65">{t("studio.subtitle")}</p>
           <p className="mt-5 flex items-center gap-2 text-[10px] text-mute/45">
             <span className="size-1.5 rounded-full bg-sky" />
-            {quick ? `Quick preset · ${optionsSummary(quickOptions)}` : "Advanced · pick the format before downloading"}
+            {quick ? t("studio.quickPreset", { summary: optionsSummary(quickOptions, t) }) : t("studio.advancedHint")}
           </p>
         </motion.div>
 
@@ -331,8 +385,8 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   }}
                   onFocus={() => setFocused(true)}
                   onBlur={() => setFocused(false)}
-                  placeholder="Paste a link"
-                  aria-label="Media URL"
+                  placeholder={t("studio.placeholder")}
+                  aria-label={t("studio.urlLabel")}
                   className="h-12 min-w-0 flex-1 border-0 bg-transparent text-[14px] font-medium tracking-[-0.01em] text-on-sky outline-none placeholder:text-on-sky/45"
                 />
 
@@ -344,7 +398,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                       inputRef.current?.focus();
                     }}
                     className="grid size-8 shrink-0 place-items-center rounded-full text-on-sky/50 outline-none transition-colors hover:bg-on-sky/10 hover:text-on-sky"
-                    aria-label="Clear URL"
+                    aria-label={t("studio.clearUrl")}
                   >
                     <X className="size-3.5" />
                   </button>
@@ -354,8 +408,8 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   type="button"
                   onClick={() => void handlePaste()}
                   disabled={pasteLoading}
-                  title="Paste from clipboard"
-                  aria-label="Paste from clipboard"
+                  title={t("studio.pasteClipboard")}
+                  aria-label={t("studio.pasteClipboard")}
                   className="grid size-9 shrink-0 place-items-center rounded-full text-on-sky/55 outline-none transition-colors hover:bg-on-sky/10 hover:text-on-sky"
                 >
                   {pasteLoading ? <Spinner className="size-4" /> : <ClipboardPaste className="size-[16px]" />}
@@ -367,7 +421,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   whileTap={!isSupportedUrl(url) || loadingMeta ? undefined : { scale: 0.92 }}
                   transition={{ type: "spring", stiffness: 520, damping: 28 }}
                   disabled={!isSupportedUrl(url) || loadingMeta}
-                  aria-label={quick ? "Download" : "Fetch details"}
+                  aria-label={quick ? t("studio.download") : t("studio.fetchDetails")}
                   className="tactile grid size-11 shrink-0 place-items-center rounded-[15px] bg-white text-sky outline-none disabled:opacity-35"
                 >
                   {loadingMeta ? <Spinner className="size-4" /> : <ArrowRight className="size-4" />}
@@ -376,7 +430,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
             </form>
 
             <div className="flex items-center justify-between px-3 pb-0.5 pt-0.5 text-[9.5px] text-on-sky/55">
-              <span>{quick ? "One click · no extra choices" : "Fetches details first"}</span>
+              <span>{quick ? t("studio.oneClick") : t("studio.fetchesFirst")}</span>
               <div className="flex items-center gap-1">
                 <motion.button
                   type="button"
@@ -384,7 +438,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   whileTap={{ scale: 0.92 }}
                   className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", quick ? "bg-white/15 font-semibold text-white" : "text-white/75 hover:text-white")}
                 >
-                  Quick
+                  {t("studio.quick")}
                 </motion.button>
                 <span className="opacity-30">/</span>
                 <motion.button
@@ -393,7 +447,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   whileTap={{ scale: 0.92 }}
                   className={cn("rounded-full px-2 py-0.5 outline-none transition-colors", !quick ? "bg-white/15 font-semibold text-white" : "text-white/75 hover:text-white")}
                 >
-                  Advanced
+                  {t("studio.advanced")}
                 </motion.button>
               </div>
             </div>
@@ -411,9 +465,11 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
               <Settings2 className="size-4" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block text-[12px] font-semibold text-mist/90">{quick ? "Advanced download" : "Back to quick"}</span>
+              <span className="block text-[12px] font-semibold text-mist/90">
+                {quick ? t("studio.advancedDownload") : t("studio.backToQuick")}
+              </span>
               <span className="mt-0.5 block text-[10px] text-mute/50">
-                {quick ? "Pick format, quality and extras" : "Use your saved one-click preset"}
+                {quick ? t("studio.advancedDownloadHint") : t("studio.backToQuickHint")}
               </span>
             </span>
             <ArrowUpRight className="size-4 shrink-0 text-mute/45 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -426,7 +482,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                 <p className="text-[10.5px] leading-relaxed text-danger/80">{error}</p>
               </div>
               <button type="button" onClick={() => void process(url, quick)} className="shrink-0 text-[10px] font-semibold text-danger outline-none hover:underline">
-                Retry
+                {t("common.retry")}
               </button>
             </div>
           ) : null}
@@ -435,10 +491,10 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
             <div className="flex items-center justify-between gap-3 rounded-[16px] border border-warn/20 px-4 py-3">
               <div className="flex items-center gap-2 text-[10.5px] text-warn/85">
                 <AlertCircle className="size-3.5 shrink-0 text-warn" />
-                <span>The media engine needs a quick refresh before downloads can start.</span>
+                <span>{t("studio.engineRefresh")}</span>
               </div>
               <button type="button" onClick={onOpenSettings} className="shrink-0 text-[10px] font-semibold text-warn outline-none hover:underline">
-                Fix in Settings
+                {t("studio.fixSettings")}
               </button>
             </div>
           ) : null}
@@ -448,7 +504,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
               <Spinner className="size-3.5 shrink-0 text-sky-ink" />
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] text-mute/65">
-                  {engine?.state === "updating" ? "Refreshing the media engine" : "Preparing the media engine"} · {engine?.progress ?? 0}%
+                  {engine?.state === "updating" ? t("studio.refreshingEngine") : t("studio.preparingEngine")} · {engine?.progress ?? 0}%
                 </p>
                 <div className="mt-2 h-1 overflow-hidden rounded-full bg-fog/[0.06]">
                   <motion.div
@@ -488,40 +544,29 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
 
       <section className="border-t border-fog/[0.07] py-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-baseline gap-3">
-            <h2 className="text-[9.5px] font-semibold uppercase tracking-[0.24em] text-mute/60">Downloads</h2>
-            <p className="text-[10px] text-mute/40">
-              {queue.length
-                ? [
-                    runningCount ? `${runningCount} running` : null,
-                    queuedCount ? `${queuedCount} waiting` : null,
-                    processingCount ? `${processingCount} processing` : null,
-                    doneCount ? `${doneCount} done` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")
-                : "Ready"}
-            </p>
+          <div className="flex flex-wrap items-baseline gap-3">
+            <h2 className="text-[9.5px] font-semibold uppercase tracking-[0.24em] text-mute/60">{t("queue.title")}</h2>
+            <p className="text-[10px] text-mute/40">{queue.length ? summary : t("queue.ready")}</p>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             {runningCount > 0 || queuedCount > 0 ? (
               <span
                 className="inline-flex items-center gap-1.5 rounded-full bg-[linear-gradient(120deg,rgba(66,133,244,0.22),rgba(155,114,203,0.22))] px-3 py-1.5 text-[10px] font-semibold text-mist/90 ring-1 ring-inset ring-fog/[0.09]"
-                title={queueEta.approximate && queueEta.seconds !== null ? "Some items have no size yet, so this is an estimate" : undefined}
+                title={queueEta.seconds === null ? t("queue.warmingTitle") : queueEta.approximate ? t("queue.etaTitle") : undefined}
               >
                 <Clock3 className="size-3 text-sky-ink" />
-                {queueEta.seconds === null ? "Estimating…" : `~${formatEta(queueEta.seconds)} left`}
-                {queueEta.approximate && queueEta.seconds !== null ? <span className="font-normal text-mute/50">approx.</span> : null}
+                {etaLabel ? t("queue.eta", { time: etaLabel }) : t("queue.calculating")}
+                {queueEta.approximate && etaLabel ? <span className="font-normal text-mute/50">{t("queue.approx")}</span> : null}
               </span>
             ) : null}
 
             <div className="flex items-center gap-3 text-[10px]">
               {(
                 [
-                  ["all", "All", queue.length],
-                  ["active", "Active", activeCount],
-                  ["done", "Done", doneCount],
+                  ["all", t("common.all"), queue.length],
+                  ["active", t("queue.active"), activeCount],
+                  ["done", t("card.completed"), doneCount],
                 ] as const
               ).map(([id, label, count]) => (
                 <button
@@ -539,7 +584,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                   onClick={downloads.clearFinished}
                   className="ml-1 text-mute/45 outline-none transition-colors hover:text-mist/80"
                 >
-                  Clear done
+                  {t("queue.clearDone")}
                 </button>
               ) : null}
             </div>
@@ -553,11 +598,36 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                 className="inline-flex items-center gap-1.5 rounded-full bg-danger/12 px-3 py-1.5 text-[10px] font-semibold text-danger outline-none transition-colors hover:bg-danger/20 focus-visible:ring-2 focus-visible:ring-danger/45"
               >
                 <Trash2 className="size-3" />
-                Clear queue
+                {t("queue.clearQueue")}
               </motion.button>
             ) : null}
           </div>
         </div>
+
+        {queue.length > 0 ? (
+          <div className="mt-3 flex items-center gap-2">
+            <div className="relative min-w-0 flex-1 sm:max-w-[220px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-3 -translate-y-1/2 text-mute/40" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t("queue.search")}
+                aria-label={t("queue.search")}
+                className="h-8 w-full rounded-full bg-fog/[0.045] pl-8 pr-3 text-[10.5px] text-mist/85 outline-none placeholder:text-mute/40 focus:bg-fog/[0.07] focus:ring-1 focus:ring-sky/40"
+              />
+              {query ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  aria-label={t("common.clear")}
+                  className="absolute right-2 top-1/2 grid size-4 -translate-y-1/2 place-items-center rounded-full text-mute/50 hover:text-mist"
+                >
+                  <X className="size-3" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-2">
           <AnimatePresence initial={false}>
@@ -569,6 +639,7 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
                 onResume={downloads.resume}
                 onCancel={downloads.cancel}
                 onRetry={downloads.retry}
+                onMoveTop={handleMoveTop}
                 onRemove={downloads.remove}
                 onOpenFile={downloads.openFile}
                 onOpenFolder={downloads.openFolder}
@@ -578,20 +649,20 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
 
           {queueHasMore ? (
             <div ref={queueSentinel} className="flex items-center justify-between px-1 py-3 text-[10px] text-mute/45">
-              <span>
-                Showing {queueShown} of {filtered.length}
-              </span>
+              <span>{t("queue.showing", { shown: queueShown, total: filtered.length })}</span>
               <button type="button" onClick={showWholeQueue} className="font-medium text-sky-ink/80 outline-none hover:text-sky-ink">
-                Show all {filtered.length}
+                {t("queue.showAll", { total: filtered.length })}
               </button>
             </div>
           ) : null}
 
           {!filtered.length && downloads.loaded ? (
-            filter === "all" ? (
+            filter === "all" && !query ? (
               <QueueEmpty onBrowse={onOpenHistory} />
             ) : (
-              <p className="py-10 text-center text-[10.5px] text-mute/35">Nothing in this filter.</p>
+              <p className="py-10 text-center text-[10.5px] text-mute/35">
+                {query ? t("queue.searchEmpty", { query }) : t("queue.emptyFilter")}
+              </p>
             )
           ) : null}
         </div>
@@ -602,20 +673,17 @@ export function Downloader({ downloads, settings, binaries, onOpenSettings, onOp
           <div className="grid size-10 place-items-center rounded-2xl bg-danger/12">
             <Trash2 className="size-4.5 text-danger" />
           </div>
-          <DialogTitle className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-mist">
-            Stop and clear the queue?
-          </DialogTitle>
+          <DialogTitle className="mt-4 font-display text-[16px] font-bold tracking-[-0.02em] text-mist">{t("queue.clearTitle")}</DialogTitle>
           <DialogDescription className="mt-1.5 text-[11px] leading-relaxed text-mute/55">
-            {queue.length ? `${pluralize(queue.length, "job")} will be stopped and removed.` : "The queue is emptied."} Files already saved
-            stay on your disk.
+            {queue.length ? t("queue.clearBody", { count: queue.length }) : t("queue.clearBodyEmpty")}
           </DialogDescription>
           <div className="mt-6 flex justify-end gap-2">
             <Button size="sm" variant="ghost" onClick={() => setConfirmClear(false)}>
-              Keep them
+              {t("queue.keep")}
             </Button>
             <Button size="sm" variant="danger" onClick={handleClearAll}>
               <Trash2 className="size-3" />
-              Stop and clear
+              {t("queue.stopClear")}
             </Button>
           </div>
         </DialogContent>
