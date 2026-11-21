@@ -1325,16 +1325,18 @@ impl DownloadQueue {
         // Serialize every heavy encode. Only one FFmpeg pass runs at a time, so
         // a finished download waits its turn instead of stacking a second
         // transcode on top of the first and pinning every core.
-        if self.encode_gate.available_permits() == 0 {
-            self.update(id, true, |item| {
-                item.stage_detail = Some(format!("{stage} · waiting for the converter…"));
-            });
-        }
-        let _permit = self
-            .encode_gate
-            .acquire()
-            .await
-            .map_err(|_| "The converter gate was closed.".to_string())?;
+        let _permit = match self.encode_gate.try_acquire() {
+            Ok(permit) => permit,
+            Err(_) => {
+                self.update(id, true, |item| {
+                    item.stage_detail = Some(format!("{stage} · waiting for the converter…"));
+                });
+                match self.encode_gate.acquire().await {
+                    Ok(permit) => permit,
+                    Err(_) => return Err("The converter gate was closed.".to_string()),
+                }
+            }
+        };
         if self.is_stopped(id) {
             return Err(cancel_reason.into());
         }
