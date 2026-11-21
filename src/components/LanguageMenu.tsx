@@ -45,7 +45,14 @@ export function LanguageMenu({ variant = "pill", align = "end", className }: Lan
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    const onScroll = () => setOpen(false);
+    // Scrolling *inside* the menu must not dismiss it — only scrolling the page
+    // behind it should. The capture-phase listener sees both, so ignore any
+    // scroll whose target lives inside the panel.
+    const onScroll = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", place);
@@ -98,7 +105,7 @@ export function LanguageMenu({ variant = "pill", align = "end", className }: Lan
                 style={{ top: position.top, left: position.left, width: position.width }}
                 className="fixed z-[120] overflow-hidden rounded-[18px] border border-fog/[0.1] bg-ink-900/95 p-1.5 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
               >
-                <div className="max-h-[320px] overflow-y-auto">
+                <div className="max-h-[min(340px,60vh)] overflow-y-auto overscroll-contain">
                   {LANGUAGES.map((item) => {
                     const active = item.code === language;
                     return (

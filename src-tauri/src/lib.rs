@@ -7,6 +7,7 @@ pub mod models;
 pub mod queue;
 pub mod state;
 pub mod store;
+pub mod sys;
 pub mod util;
 
 use std::sync::Arc;
@@ -32,6 +33,12 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
             let handle = app.handle().clone();
+
+            // Tie every future child process to this app's lifetime. If
+            // NovaTube exits — cleanly or not — Windows reaps the whole tree,
+            // so no orphaned ffmpeg/yt-dlp can keep the CPU or SSD busy.
+            crate::sys::init_child_job();
+
             let store = Arc::new(AppStore::new(&handle));
             let binaries = Arc::new(Binaries::new(handle.clone(), Arc::clone(&store)));
             let queue = Arc::new(DownloadQueue::new(
@@ -58,12 +65,14 @@ pub fn run() {
             });
 
             // Progress snapshots are written while downloads run, not only at
-            // exit, so a crash resumes from the last few seconds of work.
+            // exit, so a crash resumes from the last few seconds of work. The
+            // same loop re-checks disk space so a paused queue restarts itself
+            // once room is freed, without any user action.
             let flusher = Arc::clone(&queue);
             tauri::async_runtime::spawn(async move {
                 loop {
                     tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                    flusher.persist_if_dirty();
+                    flusher.maintenance();
                 }
             });
 

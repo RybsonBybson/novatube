@@ -15,7 +15,7 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AppInfo, AppSettings, BinariesStatus, DownloadOptions } from "@shared/types";
 import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n/LanguageContext";
@@ -79,6 +79,14 @@ export function SettingsView({
   const { t } = useI18n();
   const toast = useToast();
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // The slider tracks a local value while the user drags, so the thumb and the
+  // readout stay buttery smooth even though saving to disk is an async round
+  // trip. The value is persisted once, when the drag ends.
+  const [concurrency, setConcurrency] = useState(settings?.concurrency ?? 3);
+
+  useEffect(() => {
+    if (settings) setConcurrency(settings.concurrency);
+  }, [settings?.concurrency]);
 
   const save = async (patch: Partial<AppSettings>, successMessage?: string) => {
     try {
@@ -273,15 +281,24 @@ export function SettingsView({
               </div>
 
               <OptionRow icon={Gauge} title={t("settings.simultaneous")}>
-                <span className="font-mono text-[10.5px] tabular-nums text-sky-ink">{settings.concurrency}</span>
+                <span className="font-mono text-[13px] font-semibold tabular-nums text-sky-ink">{concurrency}</span>
                 <div className="w-full max-w-[220px]">
                   <Slider
-                    value={settings.concurrency}
+                    value={concurrency}
                     min={1}
                     max={5}
+                    step={1}
                     label={t("settings.simultaneous")}
-                    onChange={(value) => void save({ concurrency: value })}
+                    onChange={setConcurrency}
+                    onCommit={(value) => void save({ concurrency: value })}
                   />
+                  <div className="mt-1 flex justify-between px-0.5 font-mono text-[8.5px] tabular-nums text-mute/35">
+                    {[1, 2, 3, 4, 5].map((tick) => (
+                      <span key={tick} className={cn(tick === concurrency && "text-sky-ink/70")}>
+                        {tick}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </OptionRow>
             </Section>

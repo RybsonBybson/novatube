@@ -6,20 +6,29 @@ interface SliderProps {
   min: number;
   max: number;
   step?: number;
+  /** Fires continuously while dragging; keep the UI responsive here. */
   onChange: (value: number) => void;
+  /** Fires once when the drag/click ends; persist here, not on every tick. */
+  onCommit?: (value: number) => void;
   className?: string;
   label?: string;
 }
 
-export function Slider({ value, min, max, step = 1, onChange, className, label }: SliderProps) {
+export function Slider({ value, min, max, step = 1, onChange, onCommit, className, label }: SliderProps) {
   return (
     <SliderPrimitive.Root
-      className={cn("relative flex h-5 w-full touch-none select-none items-center", className)}
+      className={cn(
+        // `touch-none` stops the page from scrolling mid-drag; the generous hit
+        // area makes the small thumb easy to grab.
+        "relative flex h-6 w-full cursor-pointer touch-none select-none items-center",
+        className,
+      )}
       min={min}
       max={max}
       step={step}
       value={[value]}
       onValueChange={([next]) => onChange(next)}
+      onValueCommit={([next]) => onCommit?.(next)}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-fog/10">
         <SliderPrimitive.Range className="absolute h-full rounded-full bg-[linear-gradient(90deg,#4285f4,#9b72cb)]" />

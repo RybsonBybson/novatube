@@ -10,10 +10,12 @@ use std::time::{Duration, Instant, SystemTime};
 use regex::Regex;
 use tauri::{AppHandle, Emitter};
 use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::sync::Semaphore;
 
 use crate::binaries::Binaries;
 use crate::models::{AddDownloadInput, DownloadItem, DownloadOptions, HistoryEntry, ToastEvent};
 use crate::store::AppStore;
+use crate::sys;
 use crate::util::{
     eta_from_seconds, file_size, format_bytes, friendly_error, kill_pid, now_ms, parse_bytes,
     parse_video_id, sanitize_folder, unique_id,
@@ -25,6 +27,23 @@ const TITLE_PRINT: &str = "__NOVA_TITLE__";
 const FILE_PRINT: &str = "__NOVA_FILE__";
 const VCODEC_PRINT: &str = "__NOVA_VCODEC__";
 const PROGRESS_PRINT: &str = "__NOVA_PROGRESS__";
+
+/// Only one FFmpeg transcode/compression runs at a time. Downloads are network
+/// bound and can overlap, but a second simultaneous re-encode would saturate
+/// every core and the NVMe at once — the exact recipe for a thermal reboot.
+const ENCODE_SLOTS: usize = 1;
+/// Breathing room between one job finishing and the next heavy job starting.
+const TASK_COOLDOWN: Duration = Duration::from_millis(700);
+/// At most one write per second while only progress is changing.
+const PROGRESS_PERSIST_INTERVAL: Duration = Duration::from_secs(6);
+/// Structural changes are written promptly but still coalesced.
+const STRUCTURAL_PERSIST_INTERVAL: Duration = Duration::from_secs(1);
+/// Never flush twice within this window, no matter what changed.
+const MIN_PERSIST_INTERVAL: Duration = Duration::from_millis(900);
+/// How often the queue re-checks free disk space while paused for space.
+const SPACE_RECHECK_INTERVAL: Duration = Duration::from_secs(20);
+/// Low-space warnings are throttled to one per this window.
+const SPACE_WARN_INTERVAL: Duration = Duration::from_secs(300);
 
 struct RunState {
     pid: Option<u32>,
@@ -69,8 +88,21 @@ pub struct DownloadQueue {
     emit_times: Mutex<HashMap<String, Instant>>,
     /// Set by any mutation; the periodic flusher writes the queue snapshot.
     dirty: AtomicBool,
-    /// Once the window is closing, no new jobs may start.
+    /// Set when a non-progress change happened, so the next flush is prompt.
+    structural: AtomicBool,
+    /// Last time the queue snapshot hit the disk.
+    last_persist: Mutex<Instant>,
+    /// Set once the window is closing; no new jobs may start.
     shutting_down: AtomicBool,
+    /// Serializes the heavy FFmpeg passes so they never overlap.
+    encode_gate: Semaphore,
+    /// Set while the queue is paused because the disk is nearly full.
+    space_block: AtomicBool,
+    /// Last free-space probe, used to throttle the re-check and the warning.
+    last_space_check: Mutex<Instant>,
+    last_space_warn: Mutex<Instant>,
+    /// When the previous job finished, used to pace consecutive jobs.
+    last_finish: Mutex<Instant>,
 }
 
 impl DownloadQueue {
@@ -120,7 +152,22 @@ impl DownloadQueue {
             }),
             emit_times: Mutex::new(HashMap::new()),
             dirty: AtomicBool::new(false),
+            structural: AtomicBool::new(false),
+            last_persist: Mutex::new(Instant::now()),
             shutting_down: AtomicBool::new(false),
+            encode_gate: Semaphore::new(ENCODE_SLOTS),
+            space_block: AtomicBool::new(false),
+            last_space_check: Mutex::new(Instant::now()),
+            last_space_warn: Mutex::new(
+                Instant::now()
+                    .checked_sub(SPACE_WARN_INTERVAL)
+                    .unwrap_or_else(Instant::now),
+            ),
+            last_finish: Mutex::new(
+                Instant::now()
+                    .checked_sub(TASK_COOLDOWN)
+                    .unwrap_or_else(Instant::now),
+            ),
         }
     }
 
@@ -135,25 +182,71 @@ impl DownloadQueue {
         })
     }
 
-    pub fn persist_if_dirty(&self) {
-        if self.dirty.swap(false, Ordering::SeqCst) {
-            self.store.save_queue(&self.list());
+    /// Called on a timer. Writes the queue snapshot no more often than needed
+    /// and rechecks the disk so a space-paused queue resumes on its own.
+    pub fn maintenance(self: &Arc<Self>) {
+        if self.space_block.load(Ordering::SeqCst) {
+            self.recheck_space();
         }
+        self.persist_if_dirty();
     }
 
+    /// Coalesced snapshot write. Structural changes go out within a second;
+    /// progress-only ticks wait longer, and nothing is ever written twice
+    /// inside `MIN_PERSIST_INTERVAL`. This is what keeps a 2000-item playlist
+    /// from rewriting its JSON every couple of seconds and wearing the SSD.
+    pub fn persist_if_dirty(&self) {
+        if !self.dirty.load(Ordering::SeqCst) {
+            return;
+        }
+        let structural = self.structural.load(Ordering::SeqCst);
+        let interval = if structural {
+            STRUCTURAL_PERSIST_INTERVAL
+        } else {
+            PROGRESS_PERSIST_INTERVAL
+        };
+        let due = {
+            let last = self.last_persist.lock().unwrap_or_else(|error| error.into_inner());
+            last.elapsed() >= interval && last.elapsed() >= MIN_PERSIST_INTERVAL
+        };
+        if !due {
+            return;
+        }
+        // Structural snapshots are fsynced (they must survive a crash); pure
+        // progress snapshots skip the flush, which is the actual SSD saving.
+        self.flush(structural);
+    }
+
+    /// Force a snapshot to disk right now, fsync included. Used for changes
+    /// that must survive a crash (adds, removals, shutdown, space pause).
     pub fn persist_now(&self) {
+        self.flush(true);
+    }
+
+    fn flush(&self, sync: bool) {
         self.dirty.store(false, Ordering::SeqCst);
-        self.store.save_queue(&self.list());
+        self.structural.store(false, Ordering::SeqCst);
+        if let Ok(mut last) = self.last_persist.lock() {
+            *last = Instant::now();
+        }
+        self.store.save_queue(&self.list(), sync);
+    }
+
+    /// A change worth writing soon: add, remove, status transition.
+    fn mark_structural(&self) {
+        self.dirty.store(true, Ordering::SeqCst);
+        self.structural.store(true, Ordering::SeqCst);
+    }
+
+    /// A progress tick: written on the slower cadence only.
+    fn mark_progress(&self) {
+        self.dirty.store(true, Ordering::SeqCst);
     }
 
     /// Called once the renderer is ready: restored jobs continue where the
     /// previous session left off instead of waiting for a manual click.
     pub fn auto_resume(self: &Arc<Self>) {
         self.schedule();
-    }
-
-    fn mark_dirty(&self) {
-        self.dirty.store(true, Ordering::SeqCst);
     }
 
     pub fn list(&self) -> Vec<DownloadItem> {
@@ -184,7 +277,7 @@ impl DownloadQueue {
             inner.items.insert(item.id.clone(), item.clone());
             inner.order.insert(position, item.id.clone());
         }
-        self.mark_dirty();
+        self.mark_structural();
         self.emit_update(item.clone(), true);
         self.emit_snapshot();
         self.schedule();
@@ -227,7 +320,7 @@ impl DownloadQueue {
             inner.order.splice(position..position, ids);
         }
         // One snapshot instead of N individual events keeps huge batches cheap.
-        self.mark_dirty();
+        self.mark_structural();
         self.emit_snapshot();
         self.schedule();
         Ok(created)
@@ -328,6 +421,11 @@ impl DownloadQueue {
             item.resume_stage = None;
             item.stage_detail = Some("Cancelled".into());
         });
+        // The user abandoned this job: clear its half-written fragments now
+        // instead of leaving them to accumulate on the SSD.
+        if let Some(item) = self.get(id) {
+            self.cleanup_item_files(&item);
+        }
     }
 
     pub fn retry(self: &Arc<Self>, id: &str) {
@@ -355,20 +453,24 @@ impl DownloadQueue {
     }
 
     pub fn remove(&self, id: &str) {
-        let pid = {
+        let (pid, item) = {
             let mut inner = self.lock();
+            let item = inner.items.get(id).cloned();
             let pid = inner.runs.get_mut(id).and_then(|run| {
                 run.cancelled = true;
                 run.pid
             });
             inner.items.remove(id);
             inner.order.retain(|item_id| item_id != id);
-            pid
+            (pid, item)
         };
         if let Some(pid) = pid {
             kill_pid(pid);
         }
-        self.mark_dirty();
+        if let Some(item) = item {
+            self.cleanup_item_files(&item);
+        }
+        self.mark_structural();
         let _ = self.app.emit("downloads:removed", id);
         self.emit_snapshot();
     }
@@ -407,7 +509,7 @@ impl DownloadQueue {
             inner.order.insert(position, id.to_string());
         }
         // The queue order is meaningful state, so write it out right away.
-        self.mark_dirty();
+        self.mark_structural();
         self.persist_now();
         self.emit_snapshot();
         self.schedule();
@@ -438,19 +540,98 @@ impl DownloadQueue {
         for id in removed {
             let _ = self.app.emit("downloads:removed", id);
         }
-        self.mark_dirty();
+        self.mark_structural();
         self.emit_snapshot();
     }
 
+    /// Realign the running jobs with the configured concurrency limit.
+    ///
+    /// Raising the limit starts waiting jobs right away. Lowering it stops the
+    /// least-advanced extra jobs — their processes are killed and the items go
+    /// back to `queued` with their progress intact, so `--continue` picks them
+    /// up as soon as a slot frees. This keeps the promise on the slider literal
+    /// without ever throwing away downloaded data.
     pub fn apply_concurrency(self: &Arc<Self>) {
+        let limit = self.store.settings().concurrency.max(1) as usize;
+        let excess: Vec<(String, Option<u32>)> = {
+            let mut inner = self.lock();
+            let running: Vec<String> = inner
+                .order
+                .iter()
+                .filter(|id| inner.runs.contains_key(*id))
+                .cloned()
+                .collect();
+            if running.len() <= limit {
+                Vec::new()
+            } else {
+                let mut ranked = running;
+                // Cancel the jobs that have made the least progress first.
+                ranked.sort_by(|a, b| {
+                    let pa = inner.items.get(a).map(|item| item.progress).unwrap_or(0.0);
+                    let pb = inner.items.get(b).map(|item| item.progress).unwrap_or(0.0);
+                    pa.partial_cmp(&pb).unwrap_or(std::cmp::Ordering::Equal)
+                });
+                let cut = ranked.len() - limit;
+                ranked
+                    .into_iter()
+                    .take(cut)
+                    .map(|id| {
+                        let pid = inner.runs.get_mut(&id).and_then(|run| {
+                            run.cancelled = true;
+                            run.pid
+                        });
+                        if let Some(item) = inner.items.get_mut(&id) {
+                            item.status = "queued".into();
+                            item.speed = None;
+                            item.speed_bytes = None;
+                            item.eta = None;
+                            item.stage_detail = Some("Waiting for a free download slot…".into());
+                        }
+                        (id, pid)
+                    })
+                    .collect()
+            }
+        };
+
+        if !excess.is_empty() {
+            for (_, pid) in &excess {
+                if let Some(pid) = pid {
+                    kill_pid(*pid);
+                }
+            }
+            for (id, _) in &excess {
+                if let Some(item) = self.get(id) {
+                    self.emit_update(item, true);
+                }
+            }
+            self.mark_structural();
+            self.persist_now();
+        }
+
         self.schedule();
+    }
+
+    /// React to a settings change that could unblock the queue — for example
+    /// the user pointing downloads at a drive with free space. Rechecks space
+    /// immediately instead of waiting for the next scheduled tick.
+    pub fn nudge(self: &Arc<Self>) {
+        if self.space_block.load(Ordering::SeqCst) {
+            if let Ok(mut last) = self.last_space_check.lock() {
+                *last = Instant::now()
+                    .checked_sub(SPACE_RECHECK_INTERVAL)
+                    .unwrap_or_else(Instant::now);
+            }
+            self.recheck_space();
+        } else {
+            self.schedule();
+        }
     }
 
     /// Emergency stop: kill every child process, drop the whole queue and make
     /// sure the emptied queue is written to disk immediately, so nothing comes
     /// back on the next launch.
     pub fn clear_all(&self) {
-        let pids: Vec<u32> = {
+        let (pids, items): (Vec<u32>, Vec<DownloadItem>) = {
             let mut inner = self.lock();
             let mut pids = Vec::new();
             for run in inner.runs.values_mut() {
@@ -460,18 +641,23 @@ impl DownloadQueue {
                     pids.push(pid);
                 }
             }
+            let items = inner.items.values().cloned().collect();
             inner.items.clear();
             inner.order.clear();
-            pids
+            (pids, items)
         };
 
         for pid in pids {
             kill_pid(pid);
         }
+        // Wipe the half-written fragments of everything that was in flight.
+        for item in items {
+            self.cleanup_item_files(&item);
+        }
 
         // Spawned tasks exit on their own once `is_stopped` sees the item gone;
         // the run bookkeeping is cleaned up by `finish_run`.
-        self.mark_dirty();
+        self.mark_structural();
         self.persist_now();
         let _ = self.app.emit("downloads:cleared", ());
         self.emit_snapshot();
@@ -518,7 +704,12 @@ impl DownloadQueue {
         if self.shutting_down.load(Ordering::SeqCst) {
             return;
         }
-        let limit = self.store.settings().concurrency as usize;
+        // While the disk is nearly full nothing new may start; the maintenance
+        // loop clears the flag once there is room again.
+        if self.space_block.load(Ordering::SeqCst) {
+            return;
+        }
+        let limit = self.store.settings().concurrency.max(1) as usize;
         let mut started = Vec::new();
 
         {
@@ -598,10 +789,36 @@ impl DownloadQueue {
             return;
         }
 
+        // Brief cooldown after the previous job, so a long playlist does not
+        // run the disk and CPU at 100% back to back without a breath.
+        let delay = self.start_delay();
+        if !delay.is_zero() {
+            tokio::time::sleep(delay).await;
+            if self.is_stopped(&id) {
+                self.finish_run(&id);
+                return;
+            }
+        }
+
         let settings = self.store.settings();
         let output_dir = resolve_output_dir(&settings.download_dir, &item);
         if tokio::fs::create_dir_all(&output_dir).await.is_err() {
             self.fail(&id, "Could not create the download folder.");
+            self.finish_run(&id);
+            return;
+        }
+
+        // Never start pulling bytes we have nowhere to put: pause the queue
+        // cleanly when free space is below the safe floor.
+        if !self.has_disk_space(&output_dir, &item) {
+            self.update(&id, true, |item| {
+                item.status = "queued".into();
+                item.speed = None;
+                item.speed_bytes = None;
+                item.eta = None;
+                item.stage_detail = Some("Paused — not enough disk space".into());
+            });
+            self.persist_now();
             self.finish_run(&id);
             return;
         }
@@ -805,6 +1022,10 @@ impl DownloadQueue {
         if let Ok(mut times) = self.emit_times.lock() {
             times.remove(id);
         }
+        // Stamp the finish time so the next job can pace itself against it.
+        if let Ok(mut last) = self.last_finish.lock() {
+            *last = Instant::now();
+        }
         self.schedule();
     }
 
@@ -830,7 +1051,15 @@ impl DownloadQueue {
             let mut child = command
                 .spawn()
                 .map_err(|error| format!("Could not start the media engine: {error}"))?;
-            queue.set_pid(&id, child.id());
+            {
+                let pid = child.id();
+                queue.set_pid(&id, pid);
+                // Keep the whole yt-dlp tree (it may spawn its own ffmpeg for
+                // merges) inside the app's job object.
+                if let Some(pid) = pid {
+                    sys::assign_child_to_job(pid);
+                }
+            }
 
             let stdout = child
                 .stdout
@@ -860,6 +1089,15 @@ impl DownloadQueue {
                 if queue.is_stopped(&id) {
                     break;
                 }
+            }
+
+            // A stopped job must never keep running behind our back: kill the
+            // tree so nothing keeps writing to disk or downloading.
+            if queue.is_stopped(&id) {
+                if let Some(pid) = queue.run_pid(&id) {
+                    kill_pid(pid);
+                }
+                let _ = child.start_kill();
             }
 
             let stderr = stderr_task.await.unwrap_or_default();
@@ -1084,6 +1322,23 @@ impl DownloadQueue {
         failure_label: &str,
         ffmpeg: &str,
     ) -> Result<PathBuf, String> {
+        // Serialize every heavy encode. Only one FFmpeg pass runs at a time, so
+        // a finished download waits its turn instead of stacking a second
+        // transcode on top of the first and pinning every core.
+        if self.encode_gate.available_permits() == 0 {
+            self.update(id, true, |item| {
+                item.stage_detail = Some(format!("{stage} · waiting for the converter…"));
+            });
+        }
+        let _permit = self
+            .encode_gate
+            .acquire()
+            .await
+            .map_err(|_| "The converter gate was closed.".to_string())?;
+        if self.is_stopped(id) {
+            return Err(cancel_reason.into());
+        }
+
         let stem = input
             .file_stem()
             .map(|value| value.to_string_lossy().to_string())
@@ -1114,6 +1369,9 @@ impl DownloadQueue {
             "-map_metadata".into(),
             "0".into(),
         ]);
+        // Cap the encoder's threads instead of letting it grab every core:
+        // full saturation is what turns a long playlist into a thermal event.
+        args.extend(["-threads".into(), sys::encode_threads().to_string()]);
         // `-movflags` only exists on the mp4/mov muxers.
         if matches!(extension.as_str(), "mp4" | "m4v" | "mov") {
             args.extend(["-movflags".into(), "+faststart".into()]);
@@ -1136,7 +1394,15 @@ impl DownloadQueue {
         let mut child = command
             .spawn()
             .map_err(|error| format!("Could not start the converter: {error}"))?;
-        self.set_pid(id, child.id());
+        {
+            let pid = child.id();
+            self.set_pid(id, pid);
+            // Tie this encoder to the app's job object so it can never outlive
+            // NovaTube as an orphan.
+            if let Some(pid) = pid {
+                sys::assign_child_to_job(pid);
+            }
+        }
 
         let stderr = child
             .stderr
@@ -1275,7 +1541,96 @@ impl DownloadQueue {
             item.eta = None;
             item.stage_detail = None;
         });
+        // A failed job leaves nothing useful behind: clear its fragments so a
+        // long series of failures cannot slowly fill the SSD.
+        self.cleanup_item_files(&item);
         self.toast("error", "Download failed", Some(format!("{} — {error}", item.title)));
+    }
+
+    /// Delete any leftover partial/temporary files belonging to this item.
+    /// Finished media is never touched — only `.part`, `.ytdl`, fragment and
+    /// encode-temp files are matched, and only for this item's video id.
+    fn cleanup_item_files(&self, item: &DownloadItem) {
+        let dir = resolve_output_dir(&self.store.settings().download_dir, item);
+        let video_id = parse_video_id(&item.url);
+        cleanup_partials(&dir, video_id.as_deref());
+    }
+
+    /// Free-space probe for a directory, throttled for repeated checks.
+    fn has_disk_space(&self, dir: &Path, item: &DownloadItem) -> bool {
+        let Some(free) = sys::free_space(dir) else {
+            return true; // unknown platform: never block on a guess
+        };
+        // Keep a healthy reserve on top of this item's own estimated size.
+        let needed = item
+            .total_bytes
+            .map(|bytes| (bytes as u64).saturating_mul(12) / 10)
+            .unwrap_or(0)
+            .max(sys::MIN_FREE_BYTES);
+        if free >= needed {
+            return true;
+        }
+
+        self.space_block.store(true, Ordering::SeqCst);
+        if let Ok(mut last) = self.last_space_check.lock() {
+            *last = Instant::now();
+        }
+        self.warn_low_space(free);
+        false
+    }
+
+    fn warn_low_space(&self, free: u64) {
+        let should_warn = {
+            let mut last = self.last_space_warn.lock().unwrap_or_else(|error| error.into_inner());
+            if last.elapsed() >= SPACE_WARN_INTERVAL {
+                *last = Instant::now();
+                true
+            } else {
+                false
+            }
+        };
+        if should_warn {
+            let text = format_bytes(Some(free)).unwrap_or_else(|| "very little".into());
+            self.toast(
+                "error",
+                "Low disk space",
+                Some(format!(
+                    "Only {text} left. Downloads are paused until you free up space."
+                )),
+            );
+        }
+    }
+
+    /// Clear the space pause once the disk has room again.
+    fn recheck_space(self: &Arc<Self>) {
+        let due = {
+            let mut last = self.last_space_check.lock().unwrap_or_else(|error| error.into_inner());
+            if last.elapsed() >= SPACE_RECHECK_INTERVAL {
+                *last = Instant::now();
+                true
+            } else {
+                false
+            }
+        };
+        if !due {
+            return;
+        }
+
+        let dir = PathBuf::from(self.store.settings().download_dir);
+        match sys::free_space(&dir) {
+            Some(free) if free >= sys::MIN_FREE_BYTES => {
+                self.space_block.store(false, Ordering::SeqCst);
+                self.toast("success", "Disk space available again", Some("Downloads resumed.".into()));
+                self.schedule();
+            }
+            _ => {}
+        }
+    }
+
+    /// Time left before the next job may start, so consecutive tasks breathe.
+    fn start_delay(&self) -> Duration {
+        let last = *self.last_finish.lock().unwrap_or_else(|error| error.into_inner());
+        TASK_COOLDOWN.saturating_sub(last.elapsed())
     }
 
     fn toast(&self, kind: &str, title: &str, message: Option<String>) {
@@ -1303,8 +1658,13 @@ impl DownloadQueue {
             item.clone()
         };
         // Progress ticks are persisted by the background flusher, so a crash
-        // resumes from the last snapshot instead of starting over.
-        self.mark_dirty();
+        // resumes from the last snapshot instead of starting over. A forced
+        // change (status, path, error) is structural and written sooner.
+        if force {
+            self.mark_structural();
+        } else {
+            self.mark_progress();
+        }
 
         let should_emit = {
             let now = Instant::now();
@@ -1642,7 +2002,7 @@ fn build_args(item: &DownloadItem, output_dir: &Path, ffmpeg: Option<&str>) -> V
         "--trim-filenames".into(),
         "180".into(),
         "--concurrent-fragments".into(),
-        "8".into(),
+        "4".into(),
         "--retries".into(),
         "10".into(),
         "--fragment-retries".into(),
@@ -1745,4 +2105,47 @@ fn pending_position(inner: &QueueInner) -> usize {
                 .unwrap_or(false)
         })
         .unwrap_or(inner.order.len())
+}
+
+/// Remove leftover intermediate files for one video from a folder: yt-dlp's
+/// `.part`/`.ytdl`/fragment files and our own encode temporaries. When a video
+/// id is known, only files carrying it are touched, so parallel or unrelated
+/// work in the same folder is never disturbed.
+fn cleanup_partials(dir: &Path, video_id: Option<&str>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        let lower = name.to_ascii_lowercase();
+        let is_intermediate = lower.ends_with(".part")
+            || lower.ends_with(".ytdl")
+            || lower.contains(".nova-encode.tmp")
+            || lower.contains(".nova-original.tmp")
+            || is_fragment_file(&lower);
+        if !is_intermediate {
+            continue;
+        }
+        if let Some(id) = video_id {
+            if !name.contains(id) {
+                continue;
+            }
+        }
+        let _ = std::fs::remove_file(entry.path());
+    }
+}
+
+/// yt-dlp fragment files look like `<base>.f<digits>.<ext>`. The check is strict
+/// on purpose: a loose match could delete a legitimate file named `My.Film.mp4`.
+fn is_fragment_file(lower_name: &str) -> bool {
+    let Some((stem, ext)) = lower_name.rsplit_once('.') else {
+        return false;
+    };
+    if !matches!(ext, "mp4" | "webm" | "m4a" | "mp3" | "mkv") {
+        return false;
+    }
+    let Some((_, fragment)) = stem.rsplit_once(".f") else {
+        return false;
+    };
+    !fragment.is_empty() && fragment.chars().all(|c| c.is_ascii_digit())
 }

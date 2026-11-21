@@ -41,7 +41,12 @@ export function LanguageSwitch({ className }: { className?: string }) {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setOpen(false);
     };
-    const onScroll = () => setOpen(false);
+    // Only scrolling the page closes the menu; scrolling inside it must not.
+    const onScroll = (event: Event) => {
+      const target = event.target as Node | null;
+      if (target && panelRef.current?.contains(target)) return;
+      setOpen(false);
+    };
     window.addEventListener("pointerdown", onPointerDown, true);
     window.addEventListener("keydown", onKey);
     window.addEventListener("resize", place);
@@ -88,7 +93,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
                 style={{ top: position.top, left: position.left, width: position.width }}
                 className="fixed z-[120] overflow-hidden rounded-[18px] border border-border bg-popover/95 p-1.5 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.75)] backdrop-blur-2xl"
               >
-                <div className="max-h-[320px] overflow-y-auto">
+                <div className="max-h-[min(340px,60vh)] overflow-y-auto overscroll-contain">
                   {LANGUAGES.map((item) => {
                     const selected = item.code === language;
                     return (

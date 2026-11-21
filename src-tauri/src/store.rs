@@ -152,10 +152,15 @@ impl AppStore {
 
     /// Atomic snapshot write: the temporary file is flushed before the rename,
     /// so a crash can never leave a half-written queue on disk.
-    pub fn save_queue(&self, items: &[DownloadItem]) {
+    ///
+    /// `sync` forces an `fsync` before the rename. That is worth it for
+    /// structural changes (add/remove/status) but not for the periodic progress
+    /// snapshot, where it would turn every tick into a fresh SSD flush. The
+    /// rename stays atomic either way.
+    pub fn save_queue(&self, items: &[DownloadItem], sync: bool) {
         // Compact on purpose: a 1000-item playlist is rewritten every couple of
         // seconds while downloads run.
-        write_json_compact(&self.dir.join("queue.json"), &items);
+        write_json_compact(&self.dir.join("queue.json"), &items, sync);
     }
 
     pub fn save_window_state(&self, state: WindowState) {
@@ -202,14 +207,14 @@ fn read_history(path: &Path) -> Vec<HistoryEntry> {
 }
 
 fn write_json<T: Serialize>(path: &Path, value: &T) {
-    write_bytes(path, serde_json::to_vec_pretty(value));
+    write_bytes(path, serde_json::to_vec_pretty(value), true);
 }
 
-fn write_json_compact<T: Serialize>(path: &Path, value: &T) {
-    write_bytes(path, serde_json::to_vec(value));
+fn write_json_compact<T: Serialize>(path: &Path, value: &T, sync: bool) {
+    write_bytes(path, serde_json::to_vec(value), sync);
 }
 
-fn write_bytes(path: &Path, contents: Result<Vec<u8>, serde_json::Error>) {
+fn write_bytes(path: &Path, contents: Result<Vec<u8>, serde_json::Error>, sync: bool) {
     let Ok(contents) = contents else {
         return;
     };
@@ -217,7 +222,7 @@ fn write_bytes(path: &Path, contents: Result<Vec<u8>, serde_json::Error>) {
     let Ok(mut file) = fs::File::create(&temp) else {
         return;
     };
-    if file.write_all(&contents).is_err() || file.sync_all().is_err() {
+    if file.write_all(&contents).is_err() || (sync && file.sync_all().is_err()) {
         let _ = fs::remove_file(&temp);
         return;
     }

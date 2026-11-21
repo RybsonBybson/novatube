@@ -6,7 +6,6 @@ import appIcon from "../../src-tauri/icons/128x128.png";
 import { api } from "../lib/api";
 import { useI18n } from "../lib/i18n/LanguageContext";
 import { cn } from "../lib/utils";
-import { LanguageMenu } from "./LanguageMenu";
 
 function RestoreGlyph() {
   return (
@@ -84,8 +83,6 @@ export function TitleBar({ view, onChange, activeCount, version }: TitleBarProps
           );
         })}
       </nav>
-
-      <LanguageMenu variant="pill" className="mr-1.5" />
 
       <span className="no-drag hidden px-2 font-mono text-[9.5px] text-mute/40 sm:block">v{version ?? "1.0.0"}</span>
 

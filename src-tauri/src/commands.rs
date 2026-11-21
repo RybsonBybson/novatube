@@ -150,6 +150,11 @@ pub async fn settings_update(patch: Value, state: State<'_, AppState>) -> Result
     if previous.concurrency != settings.concurrency {
         state.queue.apply_concurrency();
     }
+    // A new destination might have plenty of room: let a space-paused queue
+    // start again without waiting for the next tick.
+    if previous.download_dir != settings.download_dir {
+        state.queue.nudge();
+    }
     Ok(settings)
 }
 
