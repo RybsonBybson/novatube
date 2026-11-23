@@ -22,6 +22,17 @@ mod imp {
     const PROCESS_SET_QUOTA: u32 = 0x0100;
     const PROCESS_TERMINATE: u32 = 0x0001;
 
+    const ATTACH_PARENT_PROCESS: u32 = 0xFFFF_FFFF;
+    const STD_INPUT_HANDLE: u32 = 0xFFFF_FFF6;
+    const STD_OUTPUT_HANDLE: u32 = 0xFFFF_FFF5;
+    const STD_ERROR_HANDLE: u32 = 0xFFFF_FFF4;
+    const GENERIC_READ: u32 = 0x8000_0000;
+    const GENERIC_WRITE: u32 = 0x4000_0000;
+    const FILE_SHARE_READ: u32 = 0x0000_0001;
+    const FILE_SHARE_WRITE: u32 = 0x0000_0002;
+    const OPEN_EXISTING: u32 = 3;
+    const INVALID_HANDLE_VALUE: isize = -1;
+
     #[repr(C)]
     #[derive(Clone, Copy, Default)]
     struct IoCounters {
@@ -71,6 +82,73 @@ mod imp {
             total_bytes: *mut u64,
             total_free_bytes: *mut u64,
         ) -> i32;
+        fn AttachConsole(process_id: u32) -> i32;
+        fn GetStdHandle(which: u32) -> Handle;
+        fn SetStdHandle(which: u32, handle: Handle) -> i32;
+        fn CreateFileW(
+            name: *const u16,
+            access: u32,
+            share: u32,
+            security: *mut c_void,
+            creation: u32,
+            flags: u32,
+            template: Handle,
+        ) -> Handle;
+    }
+
+    /// Release builds are Windows GUI binaries, so stdout/stderr are not wired
+    /// to the invoking terminal. When NovaTube is started from a shell (or a
+    /// Python subprocess without pipes) the parent console is attached and the
+    /// standard handles are pointed at it. Valid inherited handles — notably
+    /// pipes from `subprocess.Popen` — are left completely untouched.
+    pub fn attach_parent_console() {
+        unsafe {
+            let stdout = GetStdHandle(STD_OUTPUT_HANDLE);
+            let stderr = GetStdHandle(STD_ERROR_HANDLE);
+            let stdin = GetStdHandle(STD_INPUT_HANDLE);
+            let missing = |handle: Handle| handle.is_null() || handle as isize == INVALID_HANDLE_VALUE;
+
+            let out_missing = missing(stdout);
+            let err_missing = missing(stderr);
+            let in_missing = missing(stdin);
+            if !out_missing && !err_missing && !in_missing {
+                return;
+            }
+            if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
+                return;
+            }
+
+            let open_console = |name: &str| -> Handle {
+                let wide: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
+                CreateFileW(
+                    wide.as_ptr(),
+                    GENERIC_READ | GENERIC_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
+                    std::ptr::null_mut(),
+                    OPEN_EXISTING,
+                    0,
+                    std::ptr::null_mut(),
+                )
+            };
+
+            if out_missing || err_missing {
+                let handle = open_console("CONOUT$");
+                if !missing(handle) {
+                    if out_missing {
+                        SetStdHandle(STD_OUTPUT_HANDLE, handle);
+                    }
+                    if err_missing {
+                        SetStdHandle(STD_ERROR_HANDLE, handle);
+                    }
+                }
+            }
+            if in_missing {
+                let handle = open_console("CONIN$");
+                if !missing(handle) {
+                    SetStdHandle(STD_INPUT_HANDLE, handle);
+                }
+            }
+        }
     }
 
     /// The job handle is stored as a `usize` so the static stays `Send + Sync`.
@@ -148,6 +226,7 @@ mod imp {
 
     pub fn init_child_job() {}
     pub fn assign_child_to_job(_pid: u32) {}
+    pub fn attach_parent_console() {}
 
     pub fn free_space(_path: &Path) -> Option<u64> {
         None
@@ -159,7 +238,7 @@ mod imp {
     }
 }
 
-pub use imp::{assign_child_to_job, encode_threads, free_space, init_child_job};
+pub use imp::{assign_child_to_job, attach_parent_console, encode_threads, free_space, init_child_job};
 
 /// Free-space floor kept in reserve so a running encode can always finalize and
 /// the OS itself never runs out of room mid-write.

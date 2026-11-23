@@ -232,3 +232,74 @@ pub fn sanitize_folder(name: &str) -> String {
         .take(80)
         .collect()
 }
+
+/// Media containers NovaTube can write. Used for naming, resume checks and for
+/// stripping a user-supplied extension before yt-dlp appends the real one.
+pub const MEDIA_EXTENSIONS: [&str; 7] = ["mp4", "mkv", "webm", "mp3", "m4a", "wav", "flac"];
+
+pub fn is_media_extension(extension: &str) -> bool {
+    MEDIA_EXTENSIONS
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(extension))
+}
+
+/// Strip one trailing media extension (`Song.mp4` → `Song`). Any other
+/// extension is kept, because it is part of the title rather than a container.
+pub fn strip_media_extension(name: &str) -> &str {
+    match name.rsplit_once('.') {
+        Some((stem, extension)) if is_media_extension(extension) && !stem.is_empty() => stem,
+        _ => name,
+    }
+}
+
+/// Turn arbitrary user input into a safe file name on every platform.
+///
+/// `yt-dlp` normally does this itself, but custom `--name`/`--names` values are
+/// used verbatim in the output template, so they have to be cleaned here:
+/// reserved characters become spaces, trailing dots/spaces are removed (Windows
+/// cannot create them), reserved device names are suffixed, and the result is
+/// capped so a long title cannot exceed path limits.
+pub fn sanitize_filename(name: &str) -> String {
+    let mut cleaned = String::with_capacity(name.len());
+    for character in name.chars() {
+        if character.is_control() || matches!(character, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') {
+            cleaned.push(' ');
+        } else {
+            cleaned.push(character);
+        }
+    }
+    let cleaned = cleaned
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .trim_matches(|character: char| character == '.' || character == ' ')
+        .to_string();
+
+    let mut cleaned: String = cleaned.chars().take(150).collect();
+    if cleaned.is_empty() {
+        cleaned = "Untitled".into();
+    }
+
+    if is_reserved_windows_name(&cleaned) {
+        cleaned.push_str(" (file)");
+    }
+    cleaned
+}
+
+fn is_reserved_windows_name(name: &str) -> bool {
+    let stem = name
+        .split('.')
+        .next()
+        .unwrap_or(name)
+        .trim()
+        .to_ascii_uppercase();
+    matches!(stem.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || (stem.len() == 4
+            && (stem.starts_with("COM") || stem.starts_with("LPT"))
+            && stem[3..].chars().all(|character| character.is_ascii_digit()))
+}
+
+/// `3661.0` → `1:01:01`, `42.5` → `00:42`. Always at least `m:ss`.
+pub fn format_duration(seconds: f64) -> String {
+    eta_from_seconds(seconds).unwrap_or_else(|| "0:00".into())
+}

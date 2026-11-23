@@ -1882,7 +1882,7 @@ fn format_label(options: &DownloadOptions) -> String {
     )
 }
 
-fn build_format_args(options: &DownloadOptions) -> Vec<String> {
+pub(crate) fn build_format_args(options: &DownloadOptions) -> Vec<String> {
     if options.kind == "audio" {
         let quality = if options.audio_format == "mp3" {
             format!("{}K", options.audio_quality)
@@ -1936,7 +1936,7 @@ fn build_format_args(options: &DownloadOptions) -> Vec<String> {
     args
 }
 
-fn build_extra_args(options: &DownloadOptions, ffmpeg: Option<&str>) -> Vec<String> {
+pub(crate) fn build_extra_args(options: &DownloadOptions, ffmpeg: Option<&str>) -> Vec<String> {
     let mut args = Vec::new();
     if let Some(ffmpeg) = ffmpeg {
         args.extend(["--ffmpeg-location".into(), ffmpeg.to_string()]);
@@ -2030,7 +2030,7 @@ fn resolve_output_dir(download_dir: &str, item: &DownloadItem) -> PathBuf {
 }
 
 /// `%(vcodec)s` looks like `av01.0.08M.08`, `avc1.640028` or `vp9`.
-fn is_av1_codec(codec: &str) -> bool {
+pub(crate) fn is_av1_codec(codec: &str) -> bool {
     let codec = codec.trim().to_ascii_lowercase();
     codec.starts_with("av01") || codec.starts_with("av1.") || codec == "av1"
 }
@@ -2043,7 +2043,7 @@ fn compression_stage(preset: &str) -> &'static str {
     }
 }
 
-fn preset_args(preset: &str) -> (Vec<&'static str>, Vec<&'static str>) {
+pub(crate) fn preset_args(preset: &str) -> (Vec<&'static str>, Vec<&'static str>) {
     match preset {
         "high" => (
             vec![

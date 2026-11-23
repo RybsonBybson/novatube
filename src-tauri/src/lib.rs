@@ -1,6 +1,7 @@
 //! NovaTube backend: window setup, shared state and command registration.
 
 pub mod binaries;
+pub mod cli;
 pub mod commands;
 pub mod metadata;
 pub mod models;
@@ -21,6 +22,15 @@ use crate::store::{AppStore, WindowState};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Any command line argument means headless mode. Parsing happens before the
+    // Tauri builder, so CLI runs never create a window or load the webview.
+    if let Some(code) = cli::maybe_run() {
+        std::process::exit(code);
+    }
+    run_gui();
+}
+
+fn run_gui() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {

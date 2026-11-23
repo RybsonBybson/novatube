@@ -13,6 +13,11 @@ src-tauri/gen
 *.local
 *.log
 
+# Python wrapper
+__pycache__/
+*.pyc
+python/downloads/
+
 # Editor
 .vscode/*
 !.vscode/extensions.json

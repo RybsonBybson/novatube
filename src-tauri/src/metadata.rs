@@ -61,44 +61,20 @@ struct RawInfo {
 }
 
 pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<MediaInfo, String> {
-    let parsed = url::Url::parse(url).map_err(|_| "That doesn't look like a valid URL.".to_string())?;
-    if parsed.scheme() != "http" && parsed.scheme() != "https" {
-        return Err("Only http(s) links are supported.".into());
-    }
-
     let binary = binaries.ensure_ytdlp().await?;
-    let args = [
-        "--ignore-config",
-        "--no-warnings",
-        "--no-color",
-        "--encoding",
-        "utf-8",
-        "--dump-single-json",
-        "--flat-playlist",
-        "--socket-timeout",
-        "20",
-        url,
-    ];
+    fetch_metadata_with_binary(&binary, url).await
+}
 
-    let mut command = tokio::process::Command::new(binary);
-    command
-        .args(args)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped());
-    crate::util::hide_console(&mut command);
-
-    let output = tokio::time::timeout(Duration::from_secs(180), command.output())
-        .await
-    .map_err(|_| "Metadata request timed out. Check your connection and try again.".to_string())?
-    .map_err(|error| format!("Could not start the media engine: {error}"))?;
-
-    if !output.status.success() {
-        return Err(crate::util::friendly_error(&String::from_utf8_lossy(&output.stderr)));
-    }
-
-    let info: RawInfo = serde_json::from_slice(&output.stdout)
-        .map_err(|_| "The link returned no readable details.".to_string())?;
+/// Shared headless extraction: identical to the GUI path, but the already
+/// resolved engine path is passed in so the CLI can run without a Tauri app.
+pub(crate) async fn fetch_metadata_with_binary(binary: &str, url: &str) -> Result<MediaInfo, String> {
+    validate_url(url)?;
+    let info = run_json(
+        binary,
+        &["--flat-playlist".to_string(), url.to_string()],
+        Duration::from_secs(180),
+    )
+    .await?;
 
     let is_playlist = info.kind.as_deref() == Some("playlist")
         || (info
@@ -126,33 +102,7 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
     let (formats, heights) = build_formats(info.formats.as_deref());
 
     let entries: Vec<MediaEntry> = if is_playlist {
-        info.entries
-            .clone()
-            .unwrap_or_default()
-            .into_iter()
-            .filter(|entry| entry.id.is_some() || entry.url.is_some())
-            .enumerate()
-            .filter_map(|(index, entry)| {
-                let id = entry.id.clone().unwrap_or_else(|| (index + 1).to_string());
-                let entry_url = entry_url(&entry, is_youtube);
-                if entry_url.is_empty() {
-                    return None;
-                }
-                Some(MediaEntry {
-                    id,
-                    url: entry_url,
-                    title: entry
-                        .title
-                        .clone()
-                        .or_else(|| entry.fulltitle.clone())
-                        .unwrap_or_else(|| format!("Video {}", index + 1)),
-                    channel: entry.channel.clone().or_else(|| entry.uploader.clone()),
-                    duration: entry.duration.filter(|value| value.is_finite()),
-                    thumbnail: thumbnail_of(&entry, is_youtube),
-                    index,
-                })
-            })
-            .collect()
+        collect_entries(info.entries.clone().unwrap_or_default(), is_youtube, None)
     } else {
         Vec::new()
     };
@@ -195,6 +145,123 @@ pub async fn fetch_metadata(url: &str, binaries: &Arc<Binaries>) -> Result<Media
         view_count: info.view_count,
         upload_date: info.upload_date,
     })
+}
+
+pub(crate) fn validate_url(url: &str) -> Result<(), String> {
+    let parsed = url::Url::parse(url).map_err(|_| "That doesn't look like a valid URL.".to_string())?;
+    if parsed.scheme() != "http" && parsed.scheme() != "https" {
+        return Err("Only http(s) links are supported.".into());
+    }
+    Ok(())
+}
+
+async fn run_json(binary: &str, extra: &[String], timeout: Duration) -> Result<RawInfo, String> {
+    let mut args: Vec<String> = vec![
+        "--ignore-config".into(),
+        "--no-warnings".into(),
+        "--no-color".into(),
+        "--encoding".into(),
+        "utf-8".into(),
+        "--dump-single-json".into(),
+        "--socket-timeout".into(),
+        "20".into(),
+    ];
+    args.extend(extra.iter().cloned());
+
+    let mut command = tokio::process::Command::new(binary);
+    command
+        .args(&args)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+    crate::util::hide_console(&mut command);
+
+    let output = tokio::time::timeout(timeout, command.output())
+        .await
+        .map_err(|_| "Metadata request timed out. Check your connection and try again.".to_string())?
+        .map_err(|error| format!("Could not start the media engine: {error}"))?;
+
+    if !output.status.success() {
+        return Err(crate::util::friendly_error(&String::from_utf8_lossy(&output.stderr)));
+    }
+
+    serde_json::from_slice(&output.stdout)
+        .map_err(|_| "The link returned no readable details.".to_string())
+}
+
+fn media_entry(entry: &RawEntry, is_youtube: bool, position: usize) -> Option<MediaEntry> {
+    let id = entry.id.clone();
+    let url = entry_url(entry, is_youtube);
+    if id.is_none() && url.is_empty() {
+        return None;
+    }
+    let title = entry
+        .title
+        .clone()
+        .or_else(|| entry.fulltitle.clone())
+        .unwrap_or_else(|| format!("Video {}", position + 1));
+    Some(MediaEntry {
+        id: id.unwrap_or_else(|| (position + 1).to_string()),
+        url,
+        title,
+        channel: entry.channel.clone().or_else(|| entry.uploader.clone()),
+        duration: entry.duration.filter(|value| value.is_finite()),
+        thumbnail: thumbnail_of(entry, is_youtube),
+        index: position,
+    })
+}
+
+/// Turns flat playlist/search entries into usable items.
+///
+/// Unusable rows (no id and no URL, or a missing/`NA` title) are dropped, and
+/// the surviving items are renumbered from zero so the UI and the CLI always
+/// see a contiguous list. `limit` stops early, which keeps searches cheap.
+fn collect_entries(raw: Vec<RawEntry>, is_youtube: bool, limit: Option<usize>) -> Vec<MediaEntry> {
+    let mut entries: Vec<MediaEntry> = Vec::new();
+    for (position, entry) in raw.into_iter().enumerate() {
+        if limit.is_some_and(|limit| entries.len() >= limit) {
+            break;
+        }
+        let Some(mut item) = media_entry(&entry, is_youtube, position) else {
+            continue;
+        };
+        if item.title.trim().is_empty() || item.title == "NA" {
+            continue;
+        }
+        item.index = entries.len();
+        entries.push(item);
+    }
+    entries
+}
+
+/// YouTube search through yt-dlp's flat extractor: no media is touched and the
+/// result is a plain list that the CLI can print or hand to Python.
+pub(crate) async fn search_entries(
+    binary: &str,
+    query: &str,
+    limit: usize,
+) -> Result<Vec<MediaEntry>, String> {
+    let limit = limit.clamp(1, 50);
+    let target = format!("ytsearch{limit}:{query}");
+    let info = run_json(
+        binary,
+        &["--flat-playlist".to_string(), target],
+        Duration::from_secs(120),
+    )
+    .await?;
+
+    let extractor = info
+        .extractor
+        .clone()
+        .or_else(|| info.extractor_key.clone())
+        .unwrap_or_default();
+    let is_youtube = extractor.to_ascii_lowercase().contains("youtube");
+
+    Ok(collect_entries(
+        info.entries.unwrap_or_default(),
+        is_youtube,
+        Some(limit),
+    ))
 }
 
 fn thumbnail_of(entry: &RawEntry, is_youtube: bool) -> Option<String> {
