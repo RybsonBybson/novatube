@@ -11,12 +11,20 @@ import { useDownloads } from "./hooks/useDownloads";
 import { useTheme } from "./hooks/useTheme";
 import { useUpdater } from "./hooks/useUpdater";
 import { api } from "./lib/api";
+import { hideBootScreen, setBootProgress, setBootStatus } from "./lib/bootScreen";
 import { useI18n } from "./lib/i18n/LanguageContext";
 import { truncateMiddle } from "./lib/utils";
 import { TooltipProvider } from "./components/ui/tooltip";
 
 const VIEWS: ViewId[] = ["downloader", "history", "settings"];
 const BUSY_STATUSES = new Set(["queued", "fetching", "downloading", "processing", "compressing", "paused"]);
+
+/* The splash is held for at least this long so a fast check does not flash, and
+ * the check phase gets a short ceiling so a hanging network can never keep the
+ * app hidden. An install that already started gets a much longer one. */
+const SPLASH_MIN_MS = 700;
+const SPLASH_CHECK_MAX_MS = 8000;
+const SPLASH_INSTALL_MAX_MS = 180000;
 
 /**
  * All three views stay mounted and are only hidden with CSS. That keeps the
@@ -28,7 +36,7 @@ export default function App() {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const mainRef = useRef<HTMLElement>(null);
   const toast = useToast();
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
 
   const downloads = useDownloads();
   const { settings, error: settingsError, update: updateSettings } = useSettings();
@@ -37,7 +45,6 @@ export default function App() {
   const appInfo = useAppInfo();
   useTheme(settings?.theme);
   const restoredView = useRef(false);
-
   const {
     available: updateAvailable,
     checking: updateChecking,
@@ -83,6 +90,48 @@ export default function App() {
     autoInstallStarted.current = true;
     void installUpdate();
   }, [settings?.autoUpdate, updateAvailable, updateInstalling, activeCount, installUpdate]);
+
+  /* --------------------------------------------------------------- splash --
+   * The launch update check runs behind the splash, so an update that installs
+   * on startup never flashes the interface. Two ceilings keep that safe: the
+   * check gets a short one (a slow or unreachable update server must not hide
+   * the app), while an install that is already downloading gets a long one so
+   * the progress stays on screen. */
+  const [splashFloor, setSplashFloor] = useState(false);
+  const [checkElapsed, setCheckElapsed] = useState(false);
+  const [installElapsed, setInstallElapsed] = useState(false);
+  useEffect(() => {
+    const floor = window.setTimeout(() => setSplashFloor(true), SPLASH_MIN_MS);
+    const check = window.setTimeout(() => setCheckElapsed(true), SPLASH_CHECK_MAX_MS);
+    const install = window.setTimeout(() => setInstallElapsed(true), SPLASH_INSTALL_MAX_MS);
+    return () => {
+      window.clearTimeout(floor);
+      window.clearTimeout(check);
+      window.clearTimeout(install);
+    };
+  }, []);
+
+  const waitingForSettings = !settings && !settingsError;
+  const installPending =
+    Boolean(settings?.autoUpdate) && Boolean(updateAvailable) && !updateError && activeCount === 0;
+  const installing = updateInstalling || installPending;
+  const checkingUpdates = waitingForSettings || updateChecking || !splashFloor;
+  const booting = installing ? !installElapsed : checkingUpdates && !checkElapsed;
+
+  useEffect(() => {
+    if (booting) {
+      setBootStatus(
+        installing
+          ? t("boot.installing", { version: updateAvailable?.version ?? "" })
+          : t("boot.checking"),
+        dir,
+      );
+      setBootProgress(installing ? (updateProgress ?? 0) : null);
+      return;
+    }
+    setBootProgress(null);
+    hideBootScreen();
+  }, [booting, installing, updateAvailable, updateProgress, t, dir]);
 
   const changeView = useCallback(
     (next: ViewId) => {

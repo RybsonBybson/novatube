@@ -44,7 +44,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/bin/*"]
+    "resources": ["resources/bin/*"],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "installerHooks": "nsis/installer-hooks.nsh"
+      }
+    }
   },
   "plugins": {
     "updater": {

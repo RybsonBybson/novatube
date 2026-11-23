@@ -53,6 +53,20 @@ it can download `yt-dlp`, or point the CLI at existing binaries with the
 `NOVATUBE_YTDLP` / `YTDLP_PATH` and `NOVATUBE_FFMPEG` / `FFMPEG_PATH`
 environment variables.
 
+### Getting `novatube` on the PATH
+
+The Windows installer asks **“Add NovaTube to the PATH?”** once the files are in
+place. Answering *Yes* adds the install folder to your per-user `PATH`, so
+`novatube` works in any terminal without a full path. The answer is remembered,
+and an automatic update re-applies it silently — the updater runs the installer
+with `/P /UPDATE`, where no prompt can be shown, and a fresh install that was
+never asked about is left alone.
+
+Uninstalling removes the entry again, while an in-place update keeps it. To do
+it by hand, add the install folder (for example
+`%LOCALAPPDATA%\NovaTube`) to your user `PATH`, or skip the PATH entirely and
+point the Python wrapper at the executable with `NOVATUBE_BIN`.
+
 Settings from the desktop app (`%APPDATA%\com.novatube.app\settings.json` on
 Windows) are used as defaults—download folder, quality, compression, subtitles,
 SponsorBlock and concurrency—and every CLI flag overrides them.
@@ -248,6 +262,22 @@ normally.
 Every push builds the Windows installers and publishes a GitHub Release (see `.github/workflows/release.yml`). The app version is stamped as `1.0.<run_number>` so installed copies always see a newer build.
 
 Installed copies check for updates on launch and install them automatically (unless a download is running). Updates are verified with a Tauri signing key.
+
+### Launch check and splash
+
+The window opens on a small branded splash while the first update check runs, so
+an update that installs on startup never flashes the interface:
+
+- the splash stays for a moment even when the check returns instantly, so it
+  never blinks;
+- an available update with **automatic updates** enabled installs behind the
+  splash, with the download percentage in the progress bar, and the app
+  relaunches into the new version;
+- if nothing is found — or the update server cannot be reached — the interface
+  appears. The check gets a short ceiling (8 s) and an in-progress install a
+  long one (3 min), so neither can ever leave the app hidden;
+- the check never interrupts active downloads: if the previous session's queue
+  resumed, the app shows up and the update waits, exactly as before.
 
 To enable signed updates, add these repository secrets:
 

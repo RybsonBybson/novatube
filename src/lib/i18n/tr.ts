@@ -4,6 +4,8 @@ export const tr: Record<MessageKey, string> = {
   "app.private": "Tasarım gereği gizli · her şey cihazında kalır",
   "app.savesTo": "{path} konumuna kaydeder",
   "app.downloadsFolder": "indirme klasörün",
+  "boot.checking": "Güncellemeler denetleniyor…",
+  "boot.installing": "NovaTube {version} yükleniyor…",
 
   "nav.studio": "Stüdyo",
   "nav.library": "Kitaplık",

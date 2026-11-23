@@ -4,6 +4,8 @@ export const ko: Record<MessageKey, string> = {
   "app.private": "프라이버시 우선 · 모든 데이터는 기기에 남습니다",
   "app.savesTo": "{path}에 저장",
   "app.downloadsFolder": "다운로드 폴더",
+  "boot.checking": "업데이트 확인 중…",
+  "boot.installing": "NovaTube {version} 설치 중…",
 
   "nav.studio": "스튜디오",
   "nav.library": "라이브러리",

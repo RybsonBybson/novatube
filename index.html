@@ -34,36 +34,150 @@
       #root {
         min-height: 100vh;
       }
+
+      /* Launch splash. Lives outside #root so it paints before the bundle is
+         parsed, and stays until the app asks for it to go away. */
       .boot {
         position: fixed;
         inset: 0;
+        z-index: 50;
         display: grid;
         place-items: center;
         background: inherit;
+        opacity: 1;
+        transition: opacity 0.22s ease;
+      }
+      .boot.leaving {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .boot-inner {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 15px;
+      }
+      .boot-glow {
+        position: absolute;
+        top: -34px;
+        width: 190px;
+        height: 190px;
+        border-radius: 999px;
+        background: radial-gradient(closest-side, rgba(158, 189, 255, 0.22), transparent);
+        filter: blur(6px);
+        animation: boot-breathe 3.4s ease-in-out infinite;
       }
       .boot-mark {
-        width: 34px;
-        height: 34px;
-        border-radius: 11px;
-        background: #9ebdff;
-        animation: boot-pulse 1.6s ease-in-out infinite;
+        position: relative;
+        width: 54px;
+        height: 54px;
+        border-radius: 17px;
+        background: linear-gradient(152deg, #cbdaff, #7ba8ff);
+        box-shadow:
+          0 20px 42px -14px rgba(123, 168, 255, 0.6),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+        display: grid;
+        place-items: center;
+        animation: boot-pop 2.1s ease-in-out infinite;
       }
-      @keyframes boot-pulse {
+      .boot-mark::after {
+        content: "";
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        background: #0a0a0c;
+        opacity: 0.85;
+      }
+      html[data-theme="light"] .boot-mark::after {
+        background: #101018;
+      }
+      .boot-name {
+        font-family: "Plus Jakarta Sans", Inter, system-ui, -apple-system, sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.24em;
+        text-transform: uppercase;
+        opacity: 0.9;
+      }
+      .boot-status {
+        min-height: 15px;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        font-size: 11.5px;
+        font-weight: 500;
+        opacity: 0.55;
+      }
+      .boot-bar {
+        width: 186px;
+        height: 3px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(158, 189, 255, 0.16);
+      }
+      .boot-bar > span {
+        display: block;
+        width: 38%;
+        height: 100%;
+        border-radius: 999px;
+        background: linear-gradient(90deg, transparent, #9ebdff, transparent);
+        animation: boot-slide 1.3s ease-in-out infinite;
+      }
+      .boot-bar.determinate > span {
+        width: 0;
+        background: #9ebdff;
+        animation: none;
+        transition: width 0.3s ease;
+      }
+      @keyframes boot-slide {
+        0% {
+          transform: translateX(-120%);
+        }
+        100% {
+          transform: translateX(320%);
+        }
+      }
+      @keyframes boot-pop {
         0%,
         100% {
-          opacity: 0.35;
-          transform: scale(0.9);
+          transform: scale(0.94);
+          opacity: 0.82;
+        }
+        50% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      @keyframes boot-breathe {
+        0%,
+        100% {
+          opacity: 0.5;
+          transform: scale(0.92);
         }
         50% {
           opacity: 1;
-          transform: scale(1);
+          transform: scale(1.04);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-glow,
+        .boot-mark,
+        .boot-bar > span {
+          animation: none;
         }
       }
     </style>
   </head>
   <body>
     <div id="root"></div>
-    <div class="boot" id="boot-screen"><div class="boot-mark"></div></div>
+    <div class="boot" id="boot-screen" role="status" aria-live="polite">
+      <div class="boot-inner">
+        <span class="boot-glow" aria-hidden="true"></span>
+        <span class="boot-mark" aria-hidden="true"></span>
+        <span class="boot-name">NovaTube</span>
+        <span class="boot-status" id="boot-status"></span>
+        <div class="boot-bar" id="boot-bar"><span></span></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

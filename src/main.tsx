@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ToastProvider } from "./components/Toasts";
 import { LanguageProvider } from "./lib/i18n/LanguageContext";
+import { hideBootScreen } from "./lib/bootScreen";
 import "./index.css";
 
 /* Strict console lockdown: production builds do not expose logging APIs. */
@@ -20,6 +21,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state = { error: null as Error | null };
 
   static getDerivedStateFromError(error: Error) {
+    // The splash sits above everything, so it has to go before the error UI is
+    // readable.
+    hideBootScreen();
     return { error };
   }
 
@@ -63,5 +67,9 @@ if (root) {
       </ErrorBoundary>
     </StrictMode>,
   );
-  requestAnimationFrame(() => document.getElementById("boot-screen")?.remove());
+
+  /* Last-resort net: the app drives the splash away as soon as the launch
+   * update check settles, but a failure before it can do that must never leave
+   * the window on a frozen splash. */
+  window.setTimeout(hideBootScreen, 20000);
 }

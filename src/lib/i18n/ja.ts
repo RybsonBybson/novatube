@@ -4,6 +4,8 @@ export const ja: Record<MessageKey, string> = {
   "app.private": "プライバシー優先 · すべてのデータは端末内に残ります",
   "app.savesTo": "保存先: {path}",
   "app.downloadsFolder": "ダウンロードフォルダー",
+  "boot.checking": "更新を確認しています…",
+  "boot.installing": "NovaTube {version} をインストールしています…",
 
   "nav.studio": "スタジオ",
   "nav.library": "ライブラリ",

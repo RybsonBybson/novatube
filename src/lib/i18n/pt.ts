@@ -4,6 +4,8 @@ export const pt: Record<MessageKey, string> = {
   "app.private": "Privado por conceito · tudo fica no teu dispositivo",
   "app.savesTo": "Guarda em {path}",
   "app.downloadsFolder": "a tua pasta de transferências",
+  "boot.checking": "À procura de atualizações…",
+  "boot.installing": "A instalar o NovaTube {version}…",
 
   "nav.studio": "Estúdio",
   "nav.library": "Biblioteca",

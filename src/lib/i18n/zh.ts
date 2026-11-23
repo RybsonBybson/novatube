@@ -4,6 +4,8 @@ export const zh: Record<MessageKey, string> = {
   "app.private": "隐私优先 · 一切数据都留在你的设备上",
   "app.savesTo": "保存到 {path}",
   "app.downloadsFolder": "你的下载文件夹",
+  "boot.checking": "正在检查更新…",
+  "boot.installing": "正在安装 NovaTube {version}…",
 
   "nav.studio": "工作室",
   "nav.library": "资料库",

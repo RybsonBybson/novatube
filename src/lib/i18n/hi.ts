@@ -4,6 +4,8 @@ export const hi: Record<MessageKey, string> = {
   "app.private": "निजता पहले · सब कुछ आपके डिवाइस पर रहता है",
   "app.savesTo": "{path} में सहेजता है",
   "app.downloadsFolder": "आपका डाउनलोड फ़ोल्डर",
+  "boot.checking": "अपडेट जाँचे जा रहे हैं…",
+  "boot.installing": "NovaTube {version} इंस्टॉल हो रहा है…",
 
   "nav.studio": "स्टूडियो",
   "nav.library": "लाइब्रेरी",

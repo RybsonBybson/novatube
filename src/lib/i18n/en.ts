@@ -10,6 +10,8 @@ export const en = {
   "app.private": "Private by design · everything stays on your device",
   "app.savesTo": "Saves to {path}",
   "app.downloadsFolder": "your downloads folder",
+  "boot.checking": "Checking for updates…",
+  "boot.installing": "Installing NovaTube {version}…",
 
   "nav.studio": "Studio",
   "nav.library": "Library",

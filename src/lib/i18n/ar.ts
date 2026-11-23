@@ -4,6 +4,8 @@ export const ar: Record<MessageKey, string> = {
   "app.private": "خصوصية بالتصميم · كل شيء يبقى على جهازك",
   "app.savesTo": "يُحفظ في {path}",
   "app.downloadsFolder": "مجلد التنزيلات",
+  "boot.checking": "جارٍ البحث عن التحديثات…",
+  "boot.installing": "جارٍ تثبيت NovaTube {version}…",
 
   "nav.studio": "الاستوديو",
   "nav.library": "المكتبة",
